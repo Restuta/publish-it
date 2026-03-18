@@ -1,7 +1,7 @@
 # Progress
 
 ## Milestone Status
-- M0 Spike: local vertical slice complete, Vercel deployment in progress
+- M0 Spike: complete
 - M1 CLI + Auth: complete
 - M2 Polish Rendering: complete
 
@@ -11,3 +11,5 @@
 - 2026-03-18: Verified with `npm run verify` after adding unit tests plus live integration tests that run the real CLI against a local server.
 - 2026-03-19: Attached `bul.sh` to the Vercel project under `anton-vy-projects/publish-it`.
 - 2026-03-19: Added a Blob-backed production repository and a root `server.ts` Vercel entrypoint while keeping file-backed local tests intact.
+- 2026-03-19: Provisioned separate public and private Blob stores for production content and metadata.
+- 2026-03-19: Deployed production successfully and verified the live domain with a real smoke test: claim -> publish -> HTML read -> raw read -> list -> delete on `https://bul.sh`.

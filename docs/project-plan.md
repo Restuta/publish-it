@@ -49,21 +49,24 @@ A minimal CLI + service that takes markdown and publishes it to a stable URL. Bu
 **Pre-render on publish, serve static from CDN.** Rendering cost is paid once by the publisher, never by the reader.
 
 ```
-PUBLISH FLOW:
-CLI (Bun binary) or curl
+PUBLISH FLOW (function invocation):
+CLI or curl
   ↓ HTTP POST with Bearer token + markdown body
-Vercel Edge Function (Hono)
+Edge Function (Hono)
   ↓ remark/rehype pipeline renders markdown → HTML
-  ↓ Stores BOTH raw .md AND pre-rendered .html
+  ↓ Stores raw .md + pre-rendered .html to public CDN-backed storage
+  ↓ Updates metadata in KV
 Storage:
-  - Vercel KV (Redis): namespace→token_hash, slug→metadata
-  - Vercel Blob: raw markdown + pre-rendered HTML
+  - KV: namespace→token_hash, page_id→metadata, slug→page_id lookups
+  - Object storage (R2/Blob): raw markdown + pre-rendered HTML
 
-READ FLOW (the fast path):
-Reader hits URL → Edge function fetches pre-rendered HTML from blob → serves it
-  (no rendering, no processing — just a static file serve from CDN)
-  Target: < 50ms TTFB globally, < 20KB page weight
+READ FLOW (zero compute — pure CDN):
+Reader hits URL → CDN serves pre-rendered .html directly from object storage
+  No function invocation. No compute. Just a static file from the edge.
+  Target: < 30ms TTFB globally, < 20KB page weight, effectively free at any scale.
 ```
+
+**Implementation note (2026-03-19):** current production uses a private Blob store for metadata and a public Blob store for content. The pure CDN read path and KV metadata split in the diagram remain the target architecture, but the deployed app still serves reads through Hono while storing published content in Blob.
 
 ### Why This Stack
 - **Vercel**: free tier generous, edge CDN fast, blob storage simple
@@ -137,7 +140,7 @@ Local .pub mapping:
 - [x] Auth path implemented locally (namespace claiming shipped earlier than originally planned)
 - [x] **Goal**: local publish flow produces working URLs with pre-rendered HTML
 
-**Current note:** deployment to Vercel is still pending. The local vertical slice is complete and verified.
+**Current note:** deployment is live on Vercel and aliased to `bul.sh`. The local and production publish flows are both verified.
 
 ### M1: CLI + Auth (2-3 days)
 - [x] `pub claim`, `pub publish` (idempotent create/update), `pub list`, `pub remove`
