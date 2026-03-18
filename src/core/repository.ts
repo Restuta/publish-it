@@ -47,6 +47,7 @@ export interface PublishRepository {
     markdown: FilePayload,
     html: FilePayload,
   ): Promise<void>;
+  /** Caller must verify the page exists before calling. Deletes are best-effort — no error on missing data. */
   deletePage(page: StoredPage): Promise<void>;
   readMarkdown(key: string): Promise<string>;
   readHtml(key: string): Promise<string>;
