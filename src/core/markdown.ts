@@ -100,6 +100,9 @@ export function buildHtmlDocument(input: {
         --border: #e5e5e5;
         --surface: #f7f7f7;
         --code-bg: #f3f3f3;
+        --link: #1d4ed8;
+        --link-highlight: rgba(29, 78, 216, 0.16);
+        --link-highlight-hover: rgba(29, 78, 216, 0.24);
       }
 
       @media (prefers-color-scheme: dark) {
@@ -110,6 +113,9 @@ export function buildHtmlDocument(input: {
           --border: #2c2c2f;
           --surface: #161618;
           --code-bg: #1d1d21;
+          --link: #8ab4ff;
+          --link-highlight: rgba(138, 180, 255, 0.18);
+          --link-highlight-hover: rgba(138, 180, 255, 0.28);
         }
       }
 
@@ -133,7 +139,16 @@ export function buildHtmlDocument(input: {
       h3 { font-size: 1.35rem; }
       h4 { font-size: 1.1rem; }
       p, ul, ol, pre, blockquote, table { margin: 1rem 0; }
-      a { color: inherit; text-decoration-thickness: 1px; }
+      a {
+        color: var(--link);
+        text-decoration: none;
+        box-shadow: inset 0 -0.35em 0 var(--link-highlight);
+        transition: box-shadow 140ms ease, color 140ms ease;
+      }
+      a:hover,
+      a:focus-visible {
+        box-shadow: inset 0 -0.5em 0 var(--link-highlight-hover);
+      }
       blockquote {
         margin-left: 0;
         padding-left: 1rem;

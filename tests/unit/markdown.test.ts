@@ -45,5 +45,9 @@ const answer = 42;
     expect(rendered.html).toContain("language-ts");
     expect(html).toContain('meta name="robots" content="noindex,nofollow"');
     expect(html).toContain('rel="icon"');
+    expect(html).toContain("--link:");
+    expect(html).toContain(
+      "box-shadow: inset 0 -0.35em 0 var(--link-highlight)",
+    );
   });
 });
