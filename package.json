@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
     "build": "tsc -p tsconfig.json",
+    "vercel-build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome format --write .",
@@ -19,6 +20,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.4",
+    "@vercel/blob": "^2.3.1",
     "gray-matter": "^4.0.3",
     "hono": "^4.12.8",
     "rehype-highlight": "^7.0.2",

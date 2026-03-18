@@ -1,16 +1,9 @@
 import { createServer, type IncomingMessage } from "node:http";
-import path from "node:path";
 
-import { FileStore } from "../core/file-store.js";
-import { PublishService } from "../core/publish-service.js";
-import { createApp } from "./app.js";
+import { createConfiguredApp } from "./configured-app.js";
 
 const port = Number(getEnv("PORT") ?? "8787");
-const rootDir =
-  getEnv("PUB_DATA_DIR") ?? path.resolve(process.cwd(), ".tmp/publish-it-data");
-const repository = new FileStore(rootDir);
-const service = new PublishService(repository);
-const app = createApp(service);
+const app = createConfiguredApp();
 
 startServer(app.fetch, port);
 
@@ -76,7 +69,7 @@ function startServer(fetchHandler: typeof app.fetch, listenPort: number): void {
   });
 }
 
-function getEnv(name: "PORT" | "PUB_DATA_DIR"): string | undefined {
+function getEnv(name: "PORT"): string | undefined {
   return process.env[name];
 }
 
