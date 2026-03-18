@@ -161,6 +161,8 @@ export function buildHtmlDocument(input: {
       pre {
         overflow-x: auto;
         padding: 1rem;
+        font-size: 0.92rem;
+        line-height: 1.5;
         background: var(--code-bg);
         border: 1px solid var(--border);
         border-radius: 12px;
@@ -168,11 +170,13 @@ export function buildHtmlDocument(input: {
       code {
         background: var(--surface);
         padding: 0.15rem 0.35rem;
+        font-size: 0.9em;
         border-radius: 6px;
       }
       pre code {
         background: transparent;
         padding: 0;
+        font-size: inherit;
         border-radius: 0;
       }
       table {
