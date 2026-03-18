@@ -1,21 +1,134 @@
 # Publish It
 
-`stdout` for the web.
+> `stdout` for the web — one command, one URL, done.
 
-Publish markdown from a CLI to a stable URL with minimal ceremony. Built for AI agents, usable by humans.
+Publish markdown to a stable URL. Built for AI agents, usable by humans.
 
-## Repository Structure
-- `src/core/` shared contract, markdown pipeline, storage, and domain logic
-- `src/server/` Hono app and server entrypoint
-- `src/cli/` CLI entrypoint and local config/mapping logic
-- `tests/` unit and integration tests
-- `docs/project-plan.md` product and milestone plan
+**Live at [bul.sh](https://bul.sh)**
 
-## Commands
+## Quick Start
 
 ```bash
-npm install
-npm run test
-npm run verify
+# Install
+git clone https://github.com/Restuta/publish-it.git
+cd publish-it && npm install && npm run build
+npm link  # makes `pub` available globally
+
+# Claim your namespace
+pub claim myname --api-base https://bul.sh
+
+# Publish
+pub publish notes.md
+# → https://bul.sh/myname/notes
+
+# Re-publish (same URL, updated content)
+pub publish notes.md
+
+# Pipe from stdin
+cat report.md | pub publish --slug weekly-report
+
+# List your pages
+pub list
+
+# Delete a page
+pub remove weekly-report
 ```
 
+## Zero-Install (curl)
+
+No CLI needed. Any tool that can run curl can publish:
+
+```bash
+# Claim namespace
+curl -X POST https://bul.sh/api/namespaces/myname/claim
+
+# Publish (use the token from claim response)
+curl -X POST https://bul.sh/api/namespaces/myname/pages/publish \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"markdown": "# Hello\n\nThis is my page."}'
+
+# Publish from file
+curl -X POST https://bul.sh/api/namespaces/myname/pages/publish \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg md "$(cat notes.md)" '{markdown: $md}')"
+```
+
+## For AI Agents
+
+Any AI that can run shell commands can publish. Just tell it:
+
+> Use `pub publish file.md` to publish markdown to a URL.
+> Use `pub list` to see published pages.
+> Use `cat content.md | pub publish --slug my-page` to publish from stdin.
+
+Or add this to your project's `CLAUDE.md` / agent instructions:
+
+```
+To share long-form output as a URL, use:
+  pub publish <file.md>
+The command prints the live URL to stdout.
+```
+
+No SDK, no MCP server, no API client — just a shell command.
+
+## Frontmatter
+
+Control page metadata with YAML frontmatter:
+
+```yaml
+---
+title: My Report
+slug: custom-url-slug
+description: A short summary for social previews
+noindex: false        # default: true (unlisted)
+visibility: public    # public | unlisted | private
+draft: true           # draft pages are not listed
+---
+
+# My Report
+
+Content here...
+```
+
+All fields are optional. Title and description are auto-extracted from content if not specified.
+
+## How It Works
+
+```
+PUBLISH: CLI posts markdown → server renders HTML once → stores .md + .html in CDN
+READ:    Browser hits URL → CDN serves pre-rendered HTML (no compute)
+```
+
+Pages are pre-rendered on publish. Reads are static file serves from Vercel's edge CDN. Zero JS, system fonts, < 20KB per page.
+
+## CLI Reference
+
+```
+pub claim <namespace>                          Claim a namespace, get API token
+pub publish [file] [--slug <s>] [--namespace <n>]   Publish or update a page
+pub list [--namespace <n>]                     List your published pages
+pub remove <slug> [--namespace <n>]            Delete a page
+```
+
+Config stored in `~/.config/pub/config.json`. File-to-URL mappings stored in `.pub` in the working directory.
+
+## Development
+
+```bash
+npm run dev          # local server with hot reload
+npm test             # run tests
+npm run verify       # test + lint + typecheck + build
+```
+
+## API
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/namespaces/:ns/claim` | none | Claim namespace, returns token |
+| POST | `/api/namespaces/:ns/pages/publish` | Bearer | Publish/update a page |
+| GET | `/api/namespaces/:ns/pages` | Bearer | List pages |
+| DELETE | `/api/namespaces/:ns/pages/:slug` | Bearer | Delete a page |
+| GET | `/:ns/:slug` | none | Read published page (HTML) |
+| GET | `/:ns/:slug?raw` | none | Read raw markdown |
