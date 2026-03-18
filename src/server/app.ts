@@ -21,6 +21,12 @@ export function createApp(service: PublishService): Hono {
     return context.json({ ok: true });
   });
 
+  app.get("/install", (context) => {
+    return context.redirect(
+      "https://raw.githubusercontent.com/Restuta/publish-it/main/scripts/install.sh",
+    );
+  });
+
   app.post("/api/namespaces/:namespace/claim", async (context) => {
     try {
       const claimed = await service.claimNamespace(
@@ -34,16 +40,32 @@ export function createApp(service: PublishService): Hono {
 
   app.post("/api/namespaces/:namespace/pages/publish", async (context) => {
     const token = parseBearerToken(context.req.header("authorization"));
-    const body = PublishPageRequestSchema.parse(await context.req.json());
+    const contentType = context.req.header("content-type") ?? "";
+    const isJson = contentType.includes("application/json");
 
     try {
+      let markdown: string;
+      let slug: string | undefined;
+      let pageId: string | undefined;
+
+      if (isJson) {
+        const body = PublishPageRequestSchema.parse(await context.req.json());
+        markdown = body.markdown;
+        slug = body.slug;
+        pageId = body.pageId;
+      } else {
+        markdown = await context.req.text();
+        slug = context.req.query("slug") ?? undefined;
+        pageId = context.req.query("pageId") ?? undefined;
+      }
+
       const publishInput = {
         namespace: context.req.param("namespace"),
         token,
-        markdown: body.markdown,
+        markdown,
         origin: requestOrigin(context.req.url),
-        ...(body.pageId === undefined ? {} : { pageId: body.pageId }),
-        ...(body.slug === undefined ? {} : { requestedSlug: body.slug }),
+        ...(pageId === undefined ? {} : { pageId }),
+        ...(slug === undefined ? {} : { requestedSlug: slug }),
       };
       const published = await service.publishPage(publishInput);
 

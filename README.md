@@ -6,14 +6,23 @@ Publish markdown to a stable URL. Built for AI agents, usable by humans.
 
 **Live at [bul.sh](https://bul.sh)**
 
+## Install
+
+```bash
+# One-liner (downloads binary)
+curl -fsSL https://bul.sh/install | sh
+
+# Or via npm
+npm install -g publish-it
+
+# Or from source
+git clone https://github.com/Restuta/publish-it.git
+cd publish-it && npm install && npm run build && npm link
+```
+
 ## Quick Start
 
 ```bash
-# Install
-git clone https://github.com/Restuta/publish-it.git
-cd publish-it && npm install && npm run build
-npm link  # makes `pub` available globally
-
 # Claim your namespace
 pub claim myname --api-base https://bul.sh
 
@@ -42,17 +51,16 @@ No CLI needed. Any tool that can run curl can publish:
 # Claim namespace
 curl -X POST https://bul.sh/api/namespaces/myname/claim
 
-# Publish (use the token from claim response)
-curl -X POST https://bul.sh/api/namespaces/myname/pages/publish \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"markdown": "# Hello\n\nThis is my page."}'
+# Publish raw markdown (one-liner)
+curl -X POST -H "Authorization: Bearer $TOKEN" --data-binary @file.md https://bul.sh/api/namespaces/myname/pages/publish
 
-# Publish from file
-curl -X POST https://bul.sh/api/namespaces/myname/pages/publish \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --arg md "$(cat notes.md)" '{markdown: $md}')"
+# With custom slug
+curl -X POST -H "Authorization: Bearer $TOKEN" --data-binary @file.md "https://bul.sh/api/namespaces/myname/pages/publish?slug=my-page"
+
+# Or JSON if you prefer
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"markdown": "# Hello\n\nThis is my page."}' \
+  https://bul.sh/api/namespaces/myname/pages/publish
 ```
 
 ## For AI Agents
