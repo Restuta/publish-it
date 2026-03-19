@@ -6,41 +6,48 @@ Publish markdown to a stable URL. Built for AI agents, usable by humans.
 
 **Live at [bul.sh](https://bul.sh)**
 
-## Install
+## Current Status
+
+- Live service: `https://bul.sh`
+- Publish model: pre-render once on publish, then serve cached HTML
+- Content storage: public Blob
+- Metadata storage: private Blob
+- Read path on Vercel: Hono + aggressive edge caching
+- Published pages are effectively immutable unless explicitly republished
+
+## Run From Source
 
 ```bash
-# One-liner (downloads binary)
-curl -fsSL https://bul.sh/install | sh
-
-# Or via npm
-npm install -g publish-it
-
-# Or from source
 git clone https://github.com/Restuta/publish-it.git
-cd publish-it && npm install && npm run build && npm link
+cd publish-it
+npm install
+npm run build
+
+# Local CLI usage from source
+node dist/src/cli/main.js --help
 ```
 
 ## Quick Start
 
 ```bash
 # Claim your namespace
-pub claim myname --api-base https://bul.sh
+node dist/src/cli/main.js claim myname --api-base https://bul.sh
 
 # Publish
-pub publish notes.md
+node dist/src/cli/main.js publish notes.md --api-base https://bul.sh
 # → https://bul.sh/myname/notes
 
 # Re-publish (same URL, updated content)
-pub publish notes.md
+node dist/src/cli/main.js publish notes.md --api-base https://bul.sh
 
 # Pipe from stdin
-cat report.md | pub publish --slug weekly-report
+cat report.md | node dist/src/cli/main.js publish --slug weekly-report --namespace myname --api-base https://bul.sh
 
 # List your pages
-pub list
+node dist/src/cli/main.js list --namespace myname --api-base https://bul.sh
 
 # Delete a page
-pub remove weekly-report
+node dist/src/cli/main.js remove weekly-report --namespace myname --api-base https://bul.sh
 ```
 
 ## Zero-Install (curl)
@@ -49,17 +56,20 @@ No CLI needed. Any tool that can run curl can publish:
 
 ```bash
 # Claim namespace
-curl -X POST https://bul.sh/api/namespaces/myname/claim
+curl -s -X POST https://bul.sh/api/namespaces/myname/claim
 
-# Publish raw markdown (one-liner)
-curl -X POST -H "Authorization: Bearer $TOKEN" --data-binary @file.md https://bul.sh/api/namespaces/myname/pages/publish
+# Publish from a file
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @<(jq -Rs '{markdown: .}' file.md) \
+  https://bul.sh/api/namespaces/myname/pages/publish
 
 # With custom slug
-curl -X POST -H "Authorization: Bearer $TOKEN" --data-binary @file.md "https://bul.sh/api/namespaces/myname/pages/publish?slug=my-page"
-
-# Or JSON if you prefer
-curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"markdown": "# Hello\n\nThis is my page."}' \
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"markdown": "# Hello\n\nThis is my page.","slug":"my-page"}' \
   https://bul.sh/api/namespaces/myname/pages/publish
 ```
 
@@ -67,15 +77,15 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 
 Any AI that can run shell commands can publish. Just tell it:
 
-> Use `pub publish file.md` to publish markdown to a URL.
-> Use `pub list` to see published pages.
-> Use `cat content.md | pub publish --slug my-page` to publish from stdin.
+> Use `node dist/src/cli/main.js publish file.md --api-base https://bul.sh` to publish markdown to a URL.
+> Use `node dist/src/cli/main.js list --api-base https://bul.sh` to see published pages.
+> Use `cat content.md | node dist/src/cli/main.js publish --slug my-page --namespace <ns> --api-base https://bul.sh` to publish from stdin.
 
 Or add this to your project's `CLAUDE.md` / agent instructions:
 
 ```
 To share long-form output as a URL, use:
-  pub publish <file.md>
+  node dist/src/cli/main.js publish <file.md> --api-base https://bul.sh
 The command prints the live URL to stdout.
 ```
 
@@ -105,19 +115,26 @@ All fields are optional. Title and description are auto-extracted from content i
 ## How It Works
 
 ```
-PUBLISH: CLI posts markdown → server renders HTML once → stores .md + .html in CDN
-READ:    Browser hits URL → CDN serves pre-rendered HTML (no compute)
+PUBLISH: CLI posts markdown -> server renders HTML once -> stores raw markdown + HTML in Blob
+READ:    Browser hits URL -> app serves pre-rendered HTML with aggressive Vercel edge caching
 ```
 
-Pages are pre-rendered on publish. Reads are static file serves from Vercel's edge CDN. Zero JS, system fonts, < 20KB per page.
+Pages are pre-rendered on publish. On Vercel, the first read may hit the app, but subsequent reads are served from edge cache for the cache window. Zero JS, system fonts, small HTML payloads.
+
+## Immutable Publishing Model
+
+- A publish creates a rendered snapshot
+- Existing pages do not change unless explicitly republished
+- Renderer/style improvements apply to newly published or explicitly republished pages
+- This avoids silent regressions in old documents when styles change
 
 ## CLI Reference
 
 ```
-pub claim <namespace>                          Claim a namespace, get API token
-pub publish [file] [--slug <s>] [--namespace <n>]   Publish or update a page
-pub list [--namespace <n>]                     List your published pages
-pub remove <slug> [--namespace <n>]            Delete a page
+node dist/src/cli/main.js claim <namespace>                                 Claim a namespace, get API token
+node dist/src/cli/main.js publish [file] [--slug <s>] [--namespace <n>]     Publish or update a page
+node dist/src/cli/main.js list [--namespace <n>]                             List your published pages
+node dist/src/cli/main.js remove <slug> [--namespace <n>]                    Delete a page
 ```
 
 Config stored in `~/.config/pub/config.json`. File-to-URL mappings stored in `.pub` in the working directory.
