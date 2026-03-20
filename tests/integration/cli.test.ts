@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { type StartedTestServer, startTestServer } from "./test-server.js";
 
+const repoRoot = process.cwd();
+
 describe("cli integration", () => {
   let server: StartedTestServer | null = null;
 
@@ -123,7 +125,7 @@ async function runCli(
       process.execPath,
       ["./node_modules/tsx/dist/cli.mjs", "src/cli/main.ts", ...args],
       {
-        cwd: "/Users/restuta/Projects/publish-it",
+        cwd: repoRoot,
         env: {
           ...process.env,
           ...options.env,

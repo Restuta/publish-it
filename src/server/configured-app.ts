@@ -21,7 +21,7 @@ export function createConfiguredApp(config: AppConfig = {}) {
       : createFileStore(
           config.dataDir ??
             getEnv("PUB_DATA_DIR") ??
-            path.resolve(process.cwd(), ".tmp/publish-it-data"),
+            path.resolve(process.cwd(), ".tmp/pubmd-data"),
         );
   const service = createPublishService(repository);
 

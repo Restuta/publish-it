@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-REPO="Restuta/publish-it"
+REPO="Restuta/pubmd"
 INSTALL_DIR="/usr/local/bin"
-BINARY_NAME="pub"
+BINARY_NAME="pubmd"
 
 main() {
   OS=$(uname -s | tr '[:upper:]' '[:lower:]')

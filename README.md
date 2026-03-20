@@ -18,8 +18,8 @@ Publish markdown to a stable URL. Built for AI agents, usable by humans.
 ## Run From Source
 
 ```bash
-git clone https://github.com/Restuta/publish-it.git
-cd publish-it
+git clone https://github.com/Restuta/pubmd.git
+cd pubmd
 npm install
 npm run build
 

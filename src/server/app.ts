@@ -55,7 +55,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" --data-binary @file.md https://bu
 
 ---
 
-Open source — [github.com/Restuta/publish-it](https://github.com/Restuta/publish-it)`;
+Open source — [github.com/Restuta/pubmd](https://github.com/Restuta/pubmd)`;
       const rendered = await renderMarkdownToHtml(md);
       cachedHomepage = buildHtmlDocument({
         title: "bul.sh — publish markdown, get a URL",
@@ -70,7 +70,7 @@ Open source — [github.com/Restuta/publish-it](https://github.com/Restuta/publi
 
   app.get("/install", (context) => {
     return context.redirect(
-      "https://raw.githubusercontent.com/Restuta/publish-it/main/scripts/install.sh",
+      "https://raw.githubusercontent.com/Restuta/pubmd/main/scripts/install.sh",
     );
   });
 
