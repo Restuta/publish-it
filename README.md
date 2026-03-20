@@ -27,6 +27,23 @@ npm run build
 node dist/src/cli/main.js --help
 ```
 
+## Install
+
+```bash
+curl -fsSL https://bul.sh/install | sh
+```
+
+Default behavior:
+- installs `pubmd` to `~/.local/bin`
+- does not require `sudo`
+- prints a PATH hint if `~/.local/bin` is not already on your shell PATH
+
+System-wide install is opt-in:
+
+```bash
+curl -fsSL https://bul.sh/install | INSTALL_DIR=/usr/local/bin sh
+```
+
 ## Quick Start
 
 ```bash
