@@ -29,14 +29,14 @@ export function createApp(service: PublishService): Hono {
 
 Publish markdown. Get a URL.
 
-\`\`\`
+\`\`\`bash
 $ pubmd publish report.md
 → https://bul.sh/myname/report
 \`\`\`
 
 Works from any terminal. AI agents, scripts, CI — anything that can run a command.
 
-\`\`\`
+\`\`\`bash
 # Install
 curl -fsSL https://bul.sh/install | sh
 
@@ -59,7 +59,8 @@ Open source — [github.com/Restuta/publish-it](https://github.com/Restuta/publi
       const rendered = await renderMarkdownToHtml(md);
       cachedHomepage = buildHtmlDocument({
         title: "bul.sh — publish markdown, get a URL",
-        description: "Publish markdown from the command line to a stable URL. Built for AI agents, usable by humans.",
+        description:
+          "Publish markdown from the command line to a stable URL. Built for AI agents, usable by humans.",
         noindex: false,
         bodyHtml: rendered.html,
       });

@@ -19,6 +19,23 @@ Start here for any implementation work in this repository.
 8. Update [docs/progress.md](/Users/restuta/Projects/publish-it/docs/progress.md) with a short status entry after each milestone.
 9. Never commit credentials, API keys, or local auth files.
 
+## Publishing
+
+To publish markdown to a shareable URL:
+```bash
+pubmd publish <file.md> --api-base https://bul.sh
+```
+
+To list published pages:
+```bash
+pubmd list --api-base https://bul.sh
+```
+
+If not installed, use curl:
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" --data-binary @file.md https://bul.sh/api/namespaces/myname/pages/publish
+```
+
 ## Project Constraints
 - Favor minimal public surface area and simple internals that support stable URLs.
 - Keep `publish` idempotent. Do not reintroduce a separate `update` concept.

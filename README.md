@@ -50,46 +50,52 @@ node dist/src/cli/main.js list --namespace myname --api-base https://bul.sh
 node dist/src/cli/main.js remove weekly-report --namespace myname --api-base https://bul.sh
 ```
 
-## Zero-Install (curl)
-
-No CLI needed. Any tool that can run curl can publish:
-
-```bash
-# Claim namespace
-curl -s -X POST https://bul.sh/api/namespaces/myname/claim
-
-# Publish from a file
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d @<(jq -Rs '{markdown: .}' file.md) \
-  https://bul.sh/api/namespaces/myname/pages/publish
-
-# With custom slug
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"markdown": "# Hello\n\nThis is my page.","slug":"my-page"}' \
-  https://bul.sh/api/namespaces/myname/pages/publish
-```
 
 ## For AI Agents
 
-Any AI that can run shell commands can publish. Just tell it:
+Any AI that can run shell commands can publish. No SDK, no MCP, no API client — just a command.
 
-> Use `node dist/src/cli/main.js publish file.md --api-base https://bul.sh` to publish markdown to a URL.
-> Use `node dist/src/cli/main.js list --api-base https://bul.sh` to see published pages.
-> Use `cat content.md | node dist/src/cli/main.js publish --slug my-page --namespace <ns> --api-base https://bul.sh` to publish from stdin.
+### Claude Code
 
-Or add this to your project's `CLAUDE.md` / agent instructions:
+A `/publish` skill is available. Usage:
+
+```
+/publish report.md
+/publish report.md --slug weekly-report
+```
+
+Or add this to your project's `CLAUDE.md`:
 
 ```
 To share long-form output as a URL, use:
-  node dist/src/cli/main.js publish <file.md> --api-base https://bul.sh
+  pubmd publish <file.md> --api-base https://bul.sh
 The command prints the live URL to stdout.
 ```
 
-No SDK, no MCP server, no API client — just a shell command.
+### Codex / Other AI agents
+
+Add to `AGENTS.md` or system prompt:
+
+```
+To publish markdown to a shareable URL:
+  pubmd publish <file.md> --api-base https://bul.sh
+To list published pages:
+  pubmd list --api-base https://bul.sh
+```
+
+### Zero-dependency (curl)
+
+Any agent that can run curl can publish without installing anything:
+
+```bash
+# Publish raw markdown
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  --data-binary @file.md \
+  https://bul.sh/api/namespaces/myname/pages/publish
+
+# Claim namespace (one-time)
+curl -s -X POST https://bul.sh/api/namespaces/myname/claim
+```
 
 ## Frontmatter
 
@@ -100,9 +106,9 @@ Control page metadata with YAML frontmatter:
 title: My Report
 slug: custom-url-slug
 description: A short summary for social previews
-noindex: false        # default: true (unlisted)
-visibility: public    # public | unlisted | private
-draft: true           # draft pages are not listed
+noindex: false        # default: true
+visibility: public    # stored as metadata for now
+draft: true           # stored as metadata for now
 ---
 
 # My Report
@@ -111,6 +117,10 @@ Content here...
 ```
 
 All fields are optional. Title and description are auto-extracted from content if not specified.
+
+Today:
+- `title`, `slug`, `description`, and `noindex` affect rendered output/metadata
+- `visibility` and `draft` are stored as page metadata, but are not yet enforced in listing/access rules
 
 ## How It Works
 
