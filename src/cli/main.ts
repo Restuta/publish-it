@@ -155,40 +155,63 @@ async function runPublish(context: CommandContext): Promise<void> {
 }
 
 async function runList(context: CommandContext): Promise<void> {
-  const { options } = splitArgs(context.args);
+  const all = context.args.includes("--all");
+  const filtered = context.args.filter((a) => a !== "--all");
+  const { options } = splitArgs(filtered);
   const config = await loadConfig();
   const apiBase = resolveApiBase(config, options["api-base"]);
-  const namespace = options.namespace ?? config.defaultNamespace;
 
-  if (namespace === undefined) {
+  const namespacesToList = all
+    ? Object.keys(config.namespaces)
+    : [options.namespace ?? config.defaultNamespace].filter(
+        (ns): ns is string => ns !== undefined,
+      );
+
+  if (namespacesToList.length === 0) {
     throw new Error(
-      "No namespace configured. Run `pub claim <namespace>` first.",
+      "No namespace configured. Run `pubmd claim <namespace>` first.",
     );
   }
 
-  const token = config.namespaces[namespace]?.token;
+  for (const namespace of namespacesToList) {
+    const token = config.namespaces[namespace]?.token;
 
-  if (token === undefined) {
-    throw new Error(`No token configured for namespace "${namespace}".`);
-  }
+    if (token === undefined) {
+      continue;
+    }
 
-  const response = await fetch(
-    `${apiBase}/api/namespaces/${encodeURIComponent(namespace)}/pages`,
-    {
-      headers: {
-        authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${apiBase}/api/namespaces/${encodeURIComponent(namespace)}/pages`,
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
       },
-    },
-  );
+    );
 
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+    if (!response.ok) {
+      continue;
+    }
 
-  const payload = ListPagesResponseSchema.parse(await response.json());
+    const payload = ListPagesResponseSchema.parse(await response.json());
 
-  for (const page of payload.pages) {
-    console.log(`${page.slug}\t${page.url}`);
+    if (payload.pages.length === 0 && !all) {
+      console.log("No pages published.");
+      continue;
+    }
+
+    if (payload.pages.length === 0) {
+      continue;
+    }
+
+    if (all) {
+      console.log(`\n${namespace}/`);
+    }
+
+    for (const page of payload.pages) {
+      const prefix = all ? "  " : "";
+      console.log(`${prefix}${page.slug}\t${page.url}`);
+    }
   }
 }
 
@@ -308,7 +331,7 @@ function printHelp(): void {
   console.log(`Usage:
   pubmd claim <namespace> [--api-base <url>]
   pubmd publish [file] [--namespace <namespace>] [--slug <slug>] [--api-base <url>]
-  pubmd list [--namespace <namespace>] [--api-base <url>]
+  pubmd list [--namespace <namespace>] [--all] [--api-base <url>]
   pubmd remove <slug> [--namespace <namespace>] [--api-base <url>]`);
 }
 
