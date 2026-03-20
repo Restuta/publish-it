@@ -131,7 +131,15 @@ describe("autolinkBareUrls", () => {
   });
 
   it("links URLs with various TLDs", () => {
-    for (const url of ["example.io/path", "tool.sh", "app.dev/docs", "site.co/page", "telegra.ph", "paste.rs", "listed.to"]) {
+    for (const url of [
+      "example.io/path",
+      "tool.sh",
+      "app.dev/docs",
+      "site.co/page",
+      "telegra.ph",
+      "paste.rs",
+      "listed.to",
+    ]) {
       const result = autolinkBareUrls(url);
       expect(result).toBe(`[${url}](https://${url})`);
     }
@@ -141,7 +149,9 @@ describe("autolinkBareUrls", () => {
     const rendered = await renderMarkdownToHtml(
       "Quartz source: github.com/jackyzha0/quartz",
     );
-    expect(rendered.html).toContain('href="https://github.com/jackyzha0/quartz"');
+    expect(rendered.html).toContain(
+      'href="https://github.com/jackyzha0/quartz"',
+    );
   });
 
   it("strips wikilinks and autolinks URLs inside them", async () => {
