@@ -1,4 +1,4 @@
-import { del, get, put } from "@vercel/blob";
+import { del, get, list, put } from "@vercel/blob";
 import { z } from "zod";
 
 import {
@@ -11,14 +11,16 @@ import {
   type FilePayload,
   NamespaceNotFoundError,
   type PublishRepository,
+  type RateLimitRecord,
 } from "./repository.js";
 
 const LookupRecordSchema = z.object({
   pageId: z.string().uuid(),
 });
 
-const NamespacePageIndexSchema = z.object({
-  pages: z.array(StoredPageSchema),
+const RateLimitRecordSchema = z.object({
+  count: z.number(),
+  windowStartedAt: z.string(),
 });
 
 export function createBlobStore(
@@ -29,13 +31,25 @@ export function createBlobStore(
     namespace: string,
     tokenHash: string,
   ): Promise<void> {
-    const record: NamespaceRecord = {
-      namespace,
-      tokenHash,
-      createdAt: new Date().toISOString(),
-    };
+    await saveNamespace(
+      {
+        namespace,
+        tokenHash,
+        createdAt: new Date().toISOString(),
+      },
+      false,
+    );
+  }
 
-    await writeJsonBlob(namespacePath(namespace), record, false);
+  async function saveNamespace(
+    record: NamespaceRecord,
+    allowOverwrite = true,
+  ): Promise<void> {
+    await writeJsonBlob(
+      namespacePath(record.namespace),
+      record,
+      allowOverwrite,
+    );
   }
 
   async function getNamespace(
@@ -54,22 +68,50 @@ export function createBlobStore(
       throw new NamespaceNotFoundError(namespace);
     }
 
-    await writeJsonBlob(namespacePath(namespace), {
+    await saveNamespace({
       ...current,
       lastPublishAt,
     });
   }
 
-  async function listPages(namespace: string): Promise<StoredPage[]> {
-    const index = await readJsonBlob(
-      namespaceIndexPath(namespace),
-      NamespacePageIndexSchema,
-    );
-    const pages = index?.pages ?? [];
+  async function getRateLimitRecord(
+    bucket: string,
+  ): Promise<RateLimitRecord | null> {
+    return readJsonBlob(rateLimitPath(bucket), RateLimitRecordSchema);
+  }
 
-    return pages.sort((left, right) =>
-      right.updatedAt.localeCompare(left.updatedAt),
+  async function setRateLimitRecord(
+    bucket: string,
+    record: RateLimitRecord,
+  ): Promise<void> {
+    await writeJsonBlob(rateLimitPath(bucket), record);
+  }
+
+  async function listPages(namespace: string): Promise<StoredPage[]> {
+    const lookupResults = await list({
+      limit: 1000,
+      prefix: `${lookupPrefix(namespace)}/`,
+      token: metadataToken,
+    });
+
+    const pages = await Promise.all(
+      lookupResults.blobs.map(async (lookupBlob) => {
+        const lookup = await readJsonBlob(
+          lookupBlob.pathname,
+          LookupRecordSchema,
+        );
+
+        if (lookup === null) {
+          return null;
+        }
+
+        return findPageById(lookup.pageId);
+      }),
     );
+
+    return pages
+      .filter((page): page is StoredPage => page !== null)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 
   async function findPageById(pageId: string): Promise<StoredPage | null> {
@@ -106,7 +148,6 @@ export function createBlobStore(
       writeJsonBlob(lookupPath(page.namespace, page.slug), {
         pageId: page.pageId,
       }),
-      writeNamespaceIndex(page.namespace, page),
     ]);
 
     if (previousPage !== null && previousPage.slug !== page.slug) {
@@ -122,7 +163,6 @@ export function createBlobStore(
         token: metadataToken,
       }),
       del([page.markdownBlobKey, page.htmlBlobKey], { token: contentToken }),
-      removeFromNamespaceIndex(page.namespace, page.pageId),
     ]);
   }
 
@@ -192,58 +232,20 @@ export function createBlobStore(
     return `namespaces/${namespace}.json`;
   }
 
-  function namespaceIndexPath(namespace: string): string {
-    return `indexes/${namespace}.json`;
-  }
-
   function pagePath(pageId: string): string {
     return `pages/${pageId}.json`;
+  }
+
+  function lookupPrefix(namespace: string): string {
+    return `lookups/${namespace}`;
   }
 
   function lookupPath(namespace: string, slug: string): string {
     return `lookups/${namespace}/${slug}.json`;
   }
 
-  async function writeNamespaceIndex(
-    namespace: string,
-    page: StoredPage,
-  ): Promise<void> {
-    const current = await readJsonBlob(
-      namespaceIndexPath(namespace),
-      NamespacePageIndexSchema,
-    );
-    const nextPages = [...(current?.pages ?? [])];
-    const existingIndex = nextPages.findIndex(
-      (currentPage) => currentPage.pageId === page.pageId,
-    );
-
-    if (existingIndex === -1) {
-      nextPages.push(page);
-    } else {
-      nextPages[existingIndex] = page;
-    }
-
-    await writeJsonBlob(namespaceIndexPath(namespace), {
-      pages: nextPages,
-    });
-  }
-
-  async function removeFromNamespaceIndex(
-    namespace: string,
-    pageId: string,
-  ): Promise<void> {
-    const current = await readJsonBlob(
-      namespaceIndexPath(namespace),
-      NamespacePageIndexSchema,
-    );
-
-    if (current === null) {
-      return;
-    }
-
-    await writeJsonBlob(namespaceIndexPath(namespace), {
-      pages: current.pages.filter((page) => page.pageId !== pageId),
-    });
+  function rateLimitPath(bucket: string): string {
+    return `rate-limits/${sanitizeBucket(bucket)}.json`;
   }
 
   return {
@@ -252,10 +254,13 @@ export function createBlobStore(
     findPageById,
     findPageBySlug,
     getNamespace,
+    getRateLimitRecord,
     listPages,
     readHtml,
     readMarkdown,
+    saveNamespace,
     savePage,
+    setRateLimitRecord,
     touchNamespace,
   };
 }
@@ -268,4 +273,8 @@ async function streamToString(
 
 function stringifyJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function sanitizeBucket(bucket: string): string {
+  return bucket.replaceAll(/[^a-zA-Z0-9/_-]+/g, "_");
 }

@@ -132,6 +132,100 @@ Local .pub mapping:
 - Revisions: `rev:{page_id}:v{n} → { blob_key, published_at }` + `current_version` field
 - Graduate to Postgres when KV queries become painful (listing, search, etc.)
 
+## Cost Model & Abuse Control
+
+The biggest risk on Vercel is not steady-state storage. It is abuse:
+- too many namespace claims
+- too many write operations
+- too many large pages
+- too many cache misses from spam content
+
+Storage itself should stay cheap for a long time. The app is mostly text, pages are small, and read traffic is edge-cached. The practical cost center to control is **writes and churn**, not simply page count.
+
+### Design Principle
+
+Keep the hosted version easy to use for legitimate humans and AI agents, but make abuse expensive or slow.
+
+### Phase 1 Controls (implement first)
+
+**1. Claim rate limiting**
+- Limit namespace claims per IP
+- Suggested starting point:
+  - 3 claims per hour per IP
+  - 10 claims per day per IP
+- Goal: stop namespace-squatting scripts and low-effort spam
+
+**2. Publish rate limiting**
+- Limit publishes by both IP and namespace
+- Suggested starting point:
+  - 30 publishes per 10 minutes per namespace
+  - 100 publishes per hour per IP
+- Goal: stop automated flooding while allowing normal iterative editing
+
+**3. Markdown size limits**
+- Hard cap on request body / markdown size
+- Suggested starting point:
+  - 256 KB per page for v1
+- Goal: prevent Blob from becoming arbitrary cheap object storage
+
+**4. Reserved namespaces**
+- Block obvious or sensitive names
+- Initial reserved set:
+  - `admin`
+  - `api`
+  - `www`
+  - `support`
+  - `help`
+  - `install`
+  - `bul`
+  - `pubmd`
+  - `root`
+- Goal: avoid confusion, collisions, and support burden
+
+**5. Empty-namespace reclaim policy**
+- If a namespace is claimed but no page is published within 7 days, reclaim it
+- Goal: reduce squatting without adding a full identity system
+
+### Phase 2 Controls (only if needed)
+
+**6. Token rotation**
+- Add `pubmd token rotate`
+- Invalidate old namespace token on rotation
+- Useful if a token leaks or a namespace is shared accidentally
+
+**7. Lightweight audit visibility**
+- Track:
+  - last claim time
+  - last publish time
+  - publish count over recent windows
+- Goal: make abuse visible before building a moderation dashboard
+
+**8. Optional friction for suspicious traffic**
+- Only if needed later:
+  - proof-of-work
+  - challenge pages
+  - manual review queue
+- Not a v1 priority
+
+### Implementation Notes
+
+- Enforcement should happen in the service layer, not just at the CDN edge
+- Limits should be configurable via environment variables
+- The hosted instance and self-hosted instances should be able to use different defaults
+- Abuse controls should fail with clear machine-readable errors so AI agents can recover gracefully
+
+### Metrics To Watch
+
+- namespaces claimed / day
+- namespaces reclaimed without publish
+- publishes / namespace / day
+- median markdown size
+- 95th percentile markdown size
+- cache hit ratio on page reads
+- total Blob writes vs. reads
+
+If those numbers stay low, keep the system simple. If they climb unnaturally, harden the hosted instance before scaling usage.
+
 ## Milestones
 
 ### M0: Spike (1 day)
@@ -163,6 +257,9 @@ Local .pub mapping:
 - [ ] Math/KaTeX + Mermaid rendering (add when requested)
 - [ ] Page versioning (keep history, show diffs) — data model already supports this
 - [ ] Page renames with redirects — data model already supports this
+- [x] Lightweight anti-abuse controls (claim/publish rate limits, reserved namespaces, max page size)
+- [x] Namespace reclaim policy for empty claims
+- [ ] Token rotation
 - [ ] View count analytics
 - [ ] Page collections with auto-generated index
 - [ ] Expiring pages (TTL)
@@ -190,7 +287,7 @@ Local .pub mapping:
 ## Things to Decide
 
 - [ ] **Name**: `pub`? `md.pub`? `mdpost`? `pushmd`? Need a good domain.
-- [ ] **Free tier limits**: unlimited pages? Rate limit only? Storage cap?
+- [ ] **Hosted free tier**: what claim/publish/size limits are acceptable before introducing stronger friction?
 - [ ] **Subdomain vs path**: `namespace.domain` vs `domain/namespace` — start with path, add subdomain later?
 - [ ] **Markdown flavor**: strict GFM or also support Obsidian-flavored ([[wikilinks]], ==highlights==,  callouts)?
 - [ ] **Default visibility**: unlisted (noindex) or public?
