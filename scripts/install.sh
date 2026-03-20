@@ -2,7 +2,7 @@
 set -e
 
 REPO="Restuta/pubmd"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 BINARY_NAME="pubmd"
 
 main() {
@@ -29,20 +29,34 @@ main() {
   fi
 
   URL="https://github.com/${REPO}/releases/download/${TAG}/${BINARY_NAME}-${OS}-${ARCH}"
+  TARGET="${INSTALL_DIR}/${BINARY_NAME}"
 
   echo "Installing ${BINARY_NAME} ${TAG} (${OS}/${ARCH})..."
+  mkdir -p "$INSTALL_DIR"
 
   if [ -w "$INSTALL_DIR" ]; then
-    curl -fsSL "$URL" -o "${INSTALL_DIR}/${BINARY_NAME}"
-    chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
+    curl -fsSL "$URL" -o "$TARGET"
+    chmod +x "$TARGET"
   else
     echo "Need sudo to install to ${INSTALL_DIR}"
-    sudo curl -fsSL "$URL" -o "${INSTALL_DIR}/${BINARY_NAME}"
-    sudo chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
+    sudo mkdir -p "$INSTALL_DIR"
+    sudo curl -fsSL "$URL" -o "$TARGET"
+    sudo chmod +x "$TARGET"
   fi
 
-  echo "Installed ${BINARY_NAME} to ${INSTALL_DIR}/${BINARY_NAME}"
-  "${INSTALL_DIR}/${BINARY_NAME}" help
+  echo "Installed ${BINARY_NAME} to ${TARGET}"
+  "$TARGET" --help
+
+  case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *)
+      echo ""
+      echo "Add ${INSTALL_DIR} to your PATH to run ${BINARY_NAME} from any shell."
+      echo "Example for zsh:"
+      echo "  echo 'export PATH=\"${INSTALL_DIR}:\$PATH\"' >> ~/.zshrc"
+      echo "  source ~/.zshrc"
+      ;;
+  esac
 }
 
 main
