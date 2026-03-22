@@ -233,7 +233,7 @@ export function buildHtmlDocument(input: {
       blockquote p { font-style: italic; }
       blockquote p:first-child { margin-top: 0; }
       blockquote p:last-child { margin-bottom: 0; }
-      blockquote strong { color: var(--fg); font-style: normal; }
+      blockquote strong { color: inherit; font-style: normal; }
 
       hr {
         border: none;
