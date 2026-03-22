@@ -37,8 +37,11 @@ $ pubmd publish report.md
 Works from any terminal. AI agents, scripts, CI — anything that can run a command.
 
 \`\`\`bash
-# Install
+# Install (macOS/Linux)
 curl -fsSL https://bul.sh/install | sh
+
+# Install (Windows PowerShell)
+# irm https://bul.sh/install.ps1 | iex
 
 # Claim your namespace
 pubmd claim myname
@@ -71,6 +74,12 @@ Open source — [github.com/Restuta/pubmd](https://github.com/Restuta/pubmd)`;
   app.get("/install", (context) => {
     return context.redirect(
       "https://raw.githubusercontent.com/Restuta/pubmd/main/scripts/install.sh",
+    );
+  });
+
+  app.get("/install.ps1", (context) => {
+    return context.redirect(
+      "https://raw.githubusercontent.com/Restuta/pubmd/main/scripts/install.ps1",
     );
   });
 

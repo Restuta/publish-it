@@ -29,20 +29,29 @@ node dist/src/cli/main.js --help
 
 ## Install
 
+**macOS / Linux:**
 ```bash
 curl -fsSL https://bul.sh/install | sh
 ```
 
-Default behavior:
+**Windows (PowerShell):**
+```powershell
+irm https://bul.sh/install.ps1 | iex
+```
+
+**npm (any platform):**
+```bash
+npx pubmd --help
+```
+
+Default behavior (macOS/Linux):
 - installs `pubmd` to `~/.local/bin`
 - does not require `sudo`
 - prints a PATH hint if `~/.local/bin` is not already on your shell PATH
 
-System-wide install is opt-in:
-
-```bash
-curl -fsSL https://bul.sh/install | INSTALL_DIR=/usr/local/bin sh
-```
+Default behavior (Windows):
+- installs `pubmd.exe` to `%LOCALAPPDATA%\pubmd`
+- adds to user PATH automatically
 
 ## Quick Start
 
@@ -98,6 +107,20 @@ To publish markdown to a shareable URL:
   pubmd publish <file.md> --api-base https://bul.sh
 To list published pages:
   pubmd list --api-base https://bul.sh
+```
+
+### Windows AI agents
+
+If running on Windows, use `npx`:
+
+```
+npx pubmd publish <file.md> --api-base https://bul.sh
+```
+
+Or if installed via PowerShell:
+
+```
+pubmd publish <file.md> --api-base https://bul.sh
 ```
 
 ### Zero-dependency (curl)
