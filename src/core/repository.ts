@@ -30,6 +30,25 @@ export class SlugConflictError extends Error {
   }
 }
 
+export class ReservedNamespaceError extends Error {
+  constructor(namespace: string) {
+    super(`Namespace "${namespace}" is reserved.`);
+  }
+}
+
+export class RateLimitExceededError extends Error {}
+
+export class ContentTooLargeError extends Error {
+  constructor(maxBytes: number) {
+    super(`Markdown exceeds the maximum allowed size of ${maxBytes} bytes.`);
+  }
+}
+
+export interface RateLimitRecord {
+  count: number;
+  windowStartedAt: string;
+}
+
 export interface FilePayload {
   content: string;
   key: string;
@@ -37,8 +56,11 @@ export interface FilePayload {
 
 export interface PublishRepository {
   claimNamespace(namespace: string, tokenHash: string): Promise<void>;
+  saveNamespace(record: NamespaceRecord): Promise<void>;
   getNamespace(namespace: string): Promise<NamespaceRecord | null>;
   touchNamespace(namespace: string, lastPublishAt: string): Promise<void>;
+  getRateLimitRecord(bucket: string): Promise<RateLimitRecord | null>;
+  setRateLimitRecord(bucket: string, record: RateLimitRecord): Promise<void>;
   listPages(namespace: string): Promise<StoredPage[]>;
   findPageById(pageId: string): Promise<StoredPage | null>;
   findPageBySlug(namespace: string, slug: string): Promise<StoredPage | null>;

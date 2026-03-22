@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 
 import {
@@ -9,9 +9,12 @@ import { buildHtmlDocument, renderMarkdownToHtml } from "../core/markdown.js";
 import type { PublishService } from "../core/publish-service.js";
 import {
   AuthenticationError,
+  ContentTooLargeError,
   NamespaceExistsError,
   NamespaceNotFoundError,
   PageNotFoundError,
+  RateLimitExceededError,
+  ReservedNamespaceError,
   SlugConflictError,
 } from "../core/repository.js";
 
@@ -76,9 +79,11 @@ Open source — [github.com/Restuta/pubmd](https://github.com/Restuta/pubmd)`;
 
   app.post("/api/namespaces/:namespace/claim", async (context) => {
     try {
-      const claimed = await service.claimNamespace(
-        context.req.param("namespace"),
-      );
+      const ipAddress = requestIp(context);
+      const claimed = await service.claimNamespace({
+        namespace: context.req.param("namespace"),
+        ...(ipAddress === undefined ? {} : { ipAddress }),
+      });
       return context.json(claimed, 201);
     } catch (error) {
       throw toHttpException(error);
@@ -94,6 +99,7 @@ Open source — [github.com/Restuta/pubmd](https://github.com/Restuta/pubmd)`;
       let markdown: string;
       let slug: string | undefined;
       let pageId: string | undefined;
+      const ipAddress = requestIp(context);
 
       if (isJson) {
         const body = PublishPageRequestSchema.parse(await context.req.json());
@@ -111,6 +117,7 @@ Open source — [github.com/Restuta/pubmd](https://github.com/Restuta/pubmd)`;
         token,
         markdown,
         origin: requestOrigin(context.req.url),
+        ...(ipAddress === undefined ? {} : { ipAddress }),
         ...(pageId === undefined ? {} : { pageId }),
         ...(slug === undefined ? {} : { requestedSlug: slug }),
       };
@@ -207,6 +214,14 @@ function requestOrigin(url: string): string {
   return new URL(url).origin;
 }
 
+function requestIp(context: Context): string | undefined {
+  return (
+    context.req.header("x-real-ip") ??
+    context.req.header("cf-connecting-ip") ??
+    undefined
+  );
+}
+
 function toHttpException(error: unknown): HTTPException {
   if (error instanceof HTTPException) {
     return error;
@@ -226,6 +241,18 @@ function toHttpException(error: unknown): HTTPException {
 
   if (error instanceof SlugConflictError) {
     return new HTTPException(409, { message: error.message });
+  }
+
+  if (error instanceof ReservedNamespaceError) {
+    return new HTTPException(409, { message: error.message });
+  }
+
+  if (error instanceof RateLimitExceededError) {
+    return new HTTPException(429, { message: error.message });
+  }
+
+  if (error instanceof ContentTooLargeError) {
+    return new HTTPException(413, { message: error.message });
   }
 
   if (error instanceof PageNotFoundError) {
