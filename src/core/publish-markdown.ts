@@ -14,6 +14,8 @@ const LOCAL_IMAGE_EXTENSIONS = new Set([
   ".svg",
   ".avif",
 ]);
+const EXCALIDRAW_MARKDOWN_SUFFIX = ".excalidraw.md";
+const EXCALIDRAW_EXPORT_EXTENSIONS = [".svg", ".png", ".webp", ".jpg", ".jpeg"];
 
 const OBSIDIAN_IMAGE_EMBED_RE = /!\[\[([^\]\n]+)\]\]/g;
 const MARKDOWN_IMAGE_RE = /!\[([^\]]*)\]\(([^)\n]+)\)/g;
@@ -161,7 +163,11 @@ async function resolveLocalImageAsset(
   baseDir: string,
   rawTarget: string,
 ): Promise<{ alt: string; dataUrl: string } | null> {
-  const resolvedPath = path.resolve(baseDir, rawTarget);
+  const excalidrawExportPath = await resolveExcalidrawExportPath(
+    baseDir,
+    rawTarget,
+  );
+  const resolvedPath = excalidrawExportPath ?? path.resolve(baseDir, rawTarget);
   const extension = path.extname(resolvedPath).toLowerCase();
 
   if (!LOCAL_IMAGE_EXTENSIONS.has(extension)) {
@@ -171,12 +177,46 @@ async function resolveLocalImageAsset(
   try {
     const content = await readFile(resolvedPath);
     return {
-      alt: escapeMarkdownLabel(path.basename(rawTarget)),
+      alt: escapeMarkdownLabel(
+        path.basename(
+          excalidrawExportPath === null
+            ? rawTarget
+            : rawTarget.replace(/\.excalidraw\.md$/i, extension),
+        ),
+      ),
       dataUrl: buildDataUrl(content, extension),
     };
   } catch {
     return null;
   }
+}
+
+async function resolveExcalidrawExportPath(
+  baseDir: string,
+  rawTarget: string,
+): Promise<string | null> {
+  if (!rawTarget.toLowerCase().endsWith(EXCALIDRAW_MARKDOWN_SUFFIX)) {
+    return null;
+  }
+
+  const absoluteTarget = path.resolve(baseDir, rawTarget);
+  const exportBasePath = absoluteTarget.slice(
+    0,
+    -EXCALIDRAW_MARKDOWN_SUFFIX.length,
+  );
+
+  for (const extension of EXCALIDRAW_EXPORT_EXTENSIONS) {
+    const candidatePath = `${exportBasePath}${extension}`;
+
+    try {
+      await readFile(candidatePath);
+      return candidatePath;
+    } catch {
+      // Try the next export format.
+    }
+  }
+
+  return null;
 }
 
 function buildDataUrl(content: Buffer, extension: string): string {

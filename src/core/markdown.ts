@@ -52,11 +52,18 @@ export async function renderMarkdownToHtml(
   markdown: string,
 ): Promise<RenderedPageDocument> {
   const renderedMarkdown = autolinkBareUrls(stripWikilinks(markdown.trim()));
+  const defaultProtocols = defaultSchema.protocols as
+    | Record<string, Array<string> | null | undefined>
+    | undefined;
+  const defaultSrcProtocolsValue = defaultProtocols?.["src"];
+  const defaultSrcProtocols = Array.isArray(defaultSrcProtocolsValue)
+    ? defaultSrcProtocolsValue
+    : [];
   const sanitizeSchema = {
     ...defaultSchema,
     protocols: {
       ...defaultSchema.protocols,
-      src: [...(defaultSchema.protocols?.["src"] ?? []), "data"],
+      src: [...defaultSrcProtocols, "data"],
     },
   };
   const rawHtml = String(

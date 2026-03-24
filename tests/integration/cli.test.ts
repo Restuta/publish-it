@@ -166,6 +166,72 @@ Look:
     const rawMarkdown = await rawResponse.text();
     expect(rawMarkdown).toContain("![[diagram.svg|320x200]]");
   });
+
+  it("renders Excalidraw embeds from sibling exported images while preserving the raw note", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "publish-it-cli-excal-"));
+    const configDir = path.join(root, "config");
+    const mappingPath = path.join(root, ".pub");
+    const cwd = path.join(root, "workspace");
+    const notePath = path.join(cwd, "note.md");
+    const drawingPath = path.join(cwd, "landscape.excalidraw.md");
+    const exportPath = path.join(cwd, "landscape.svg");
+
+    server = await startTestServer(root);
+    await mkdir(cwd, { recursive: true });
+    await writeFile(
+      drawingPath,
+      `---
+excalidraw-plugin: parsed
+---
+`,
+      "utf8",
+    );
+    await writeFile(
+      exportPath,
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="orange"/></svg>',
+      "utf8",
+    );
+    await writeFile(
+      notePath,
+      `---
+title: Excalidraw Embed
+---
+
+Diagram:
+
+![[landscape.excalidraw.md]]
+`,
+      "utf8",
+    );
+
+    await runCli(["claim", "restuta", "--api-base", server.origin], {
+      cwd,
+      env: {
+        PUB_CONFIG_DIR: configDir,
+        PUB_MAPPING_PATH: mappingPath,
+      },
+    });
+
+    const publishResult = await runCli(
+      ["publish", notePath, "--api-base", server.origin],
+      {
+        cwd,
+        env: {
+          PUB_CONFIG_DIR: configDir,
+          PUB_MAPPING_PATH: mappingPath,
+        },
+      },
+    );
+    const pageUrl = publishResult.stdout.trim();
+
+    const htmlResponse = await fetch(pageUrl);
+    const html = await htmlResponse.text();
+    expect(html).toContain("data:image/svg+xml;base64,");
+
+    const rawResponse = await fetch(`${pageUrl}?raw=1`);
+    const rawMarkdown = await rawResponse.text();
+    expect(rawMarkdown).toContain("![[landscape.excalidraw.md]]");
+  });
 });
 
 async function runCli(
