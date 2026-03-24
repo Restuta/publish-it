@@ -8,6 +8,8 @@ import {
   ListPagesResponseSchema,
   PublishedPageSchema,
 } from "../core/contract.js";
+import { parseMarkdownDocument } from "../core/markdown.js";
+import { prepareMarkdownBodyForPublish } from "../core/publish-markdown.js";
 import {
   loadConfig,
   loadMapping,
@@ -117,6 +119,10 @@ async function runPublish(context: CommandContext): Promise<void> {
     filePath === undefined
       ? await readStdin()
       : await readFile(path.resolve(filePath), "utf8");
+  const renderMarkdown =
+    filePath === undefined
+      ? undefined
+      : await buildRenderMarkdown(markdown, path.resolve(filePath));
   const response = await fetch(
     `${apiBase}/api/namespaces/${encodeURIComponent(namespace)}/pages/publish`,
     {
@@ -127,6 +133,7 @@ async function runPublish(context: CommandContext): Promise<void> {
       },
       body: JSON.stringify({
         markdown,
+        ...(renderMarkdown === undefined ? {} : { renderMarkdown }),
         ...(options.slug === undefined ? {} : { slug: options.slug }),
         ...(existingMapping?.pageId === undefined
           ? {}
@@ -152,6 +159,18 @@ async function runPublish(context: CommandContext): Promise<void> {
   }
 
   console.log(published.url);
+}
+
+async function buildRenderMarkdown(
+  markdown: string,
+  sourcePath: string,
+): Promise<string | undefined> {
+  const parsed = parseMarkdownDocument(markdown);
+  const renderMarkdown = await prepareMarkdownBodyForPublish(parsed.body, {
+    sourcePath,
+  });
+
+  return renderMarkdown === parsed.body ? undefined : renderMarkdown;
 }
 
 async function runList(context: CommandContext): Promise<void> {

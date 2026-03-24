@@ -1,6 +1,6 @@
 import matter from "gray-matter";
 import rehypeHighlight from "rehype-highlight";
-import rehypeSanitize from "rehype-sanitize";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
@@ -52,12 +52,19 @@ export async function renderMarkdownToHtml(
   markdown: string,
 ): Promise<RenderedPageDocument> {
   const renderedMarkdown = autolinkBareUrls(stripWikilinks(markdown.trim()));
+  const sanitizeSchema = {
+    ...defaultSchema,
+    protocols: {
+      ...defaultSchema.protocols,
+      src: [...(defaultSchema.protocols?.["src"] ?? []), "data"],
+    },
+  };
   const rawHtml = String(
     await unified()
       .use(remarkParse)
       .use(remarkGfm)
       .use(remarkRehype)
-      .use(rehypeSanitize)
+      .use(rehypeSanitize, sanitizeSchema)
       .use(rehypeHighlight)
       .use(rehypeStringify)
       .process(renderedMarkdown),

@@ -23,6 +23,7 @@ import { ensureName, slugify } from "./slug.js";
 
 export interface PublishPageInput {
   markdown: string;
+  renderMarkdown?: string;
   namespace: string;
   pageId?: string;
   requestedSlug?: string;
@@ -89,6 +90,7 @@ export function createPublishService(
     await authenticate(safeNamespace, input.token);
 
     const parsed = parseMarkdownDocument(input.markdown);
+    const renderMarkdown = input.renderMarkdown ?? parsed.body;
     const requestedSlug =
       input.requestedSlug ?? parsed.frontmatter.slug ?? slugify(parsed.title);
     const safeSlug = ensureName(slugify(requestedSlug));
@@ -102,7 +104,7 @@ export function createPublishService(
     const now = new Date().toISOString();
     const markdownBlobKey = `${pageId}.md`;
     const htmlBlobKey = `${pageId}.html`;
-    const rendered = await renderMarkdownToHtml(parsed.body);
+    const rendered = await renderMarkdownToHtml(renderMarkdown);
     const htmlDocument = buildHtmlDocument({
       title: parsed.title,
       description: parsed.description,
@@ -112,6 +114,7 @@ export function createPublishService(
     const contentHash = sha256(
       JSON.stringify({
         markdown: input.markdown,
+        renderMarkdown,
         slug,
         title: parsed.title,
         description: parsed.description,
