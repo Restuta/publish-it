@@ -360,8 +360,8 @@ export function buildHtmlDocument(input: {
         border-radius: 1px;
         transition: background 150ms ease;
       }
-      .toc-lines span.depth-2 { width: 24px; }
-      .toc-lines span.depth-3 { width: 14px; }
+      .toc-lines span.depth-root { width: 24px; }
+      .toc-lines span.depth-child { width: 14px; }
       .toc-lines span.active { background: var(--fg); }
       .toc-nav {
         position: absolute;
@@ -394,7 +394,7 @@ export function buildHtmlDocument(input: {
       }
       .toc-nav a:hover { color: var(--fg); background: var(--surface); }
       .toc-nav a.active { color: var(--link); background: var(--surface); }
-      .toc-nav a.depth-3 { padding-left: 1.75rem; font-size: 0.8rem; }
+      .toc-nav a.depth-child { padding-left: 1.75rem; font-size: 0.8rem; }
 
       /* Mobile adjustments */
       @media (max-width: 600px) {
@@ -432,7 +432,31 @@ export function buildHtmlDocument(input: {
         });
       });
       // TOC navigation — minimap lines + hover popover
-      const headings = document.querySelectorAll('article h2, article h3');
+      const pageTitle = ${JSON.stringify(input.title)};
+      const bodyHeadings = Array.from(
+        document.querySelectorAll('article h1, article h2, article h3, article h4'),
+      ).filter((heading, index) => {
+        if (index !== 0) {
+          return true;
+        }
+
+        return !(
+          heading.tagName === 'H1' &&
+          (heading.textContent || '').trim() === pageTitle
+        );
+      });
+      const headingLevels = bodyHeadings.map((heading) => Number(heading.tagName.slice(1)));
+      const rootLevel =
+        headingLevels.length > 0 ? Math.min(...headingLevels) : null;
+      const childLevel =
+        rootLevel !== null && headingLevels.includes(rootLevel + 1)
+          ? rootLevel + 1
+          : null;
+      const headings = bodyHeadings.filter((heading) => {
+        const level = Number(heading.tagName.slice(1));
+        return level === rootLevel || level === childLevel;
+      });
+
       if (headings.length >= 3) {
         headings.forEach((h, i) => { if (!h.id) h.id = 'h-' + i; });
         const wrap = document.createElement('div');
@@ -444,7 +468,11 @@ export function buildHtmlDocument(input: {
         const lineEls = [];
         headings.forEach(h => {
           const line = document.createElement('span');
-          const depth = h.tagName === 'H3' ? 'depth-3' : 'depth-2';
+          const depth =
+            childLevel !== null &&
+            Number(h.tagName.slice(1)) === childLevel
+              ? 'depth-child'
+              : 'depth-root';
           line.className = depth;
           line.dataset.id = h.id;
           lines.appendChild(line);
@@ -452,7 +480,7 @@ export function buildHtmlDocument(input: {
           const a = document.createElement('a');
           a.href = '#' + h.id;
           a.textContent = h.textContent;
-          if (h.tagName === 'H3') a.classList.add('depth-3');
+          if (depth === 'depth-child') a.classList.add('depth-child');
           a.addEventListener('click', e => {
             e.preventDefault();
             h.scrollIntoView({ behavior: 'auto', block: 'start' });

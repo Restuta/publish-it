@@ -50,6 +50,21 @@ const answer = 42;
     expect(html).toContain("text-underline-offset");
   });
 
+  it("builds adaptive TOC logic for documents that use body h1 headings", () => {
+    const html = buildHtmlDocument({
+      title: "Doc Title",
+      description: "Example",
+      noindex: true,
+      bodyHtml:
+        "<h1>Doc Title</h1><h1>Section</h1><h2>Child</h2><h1>Another</h1>",
+    });
+
+    expect(html).toContain("article h1, article h2, article h3, article h4");
+    expect(html).toContain('const pageTitle = "Doc Title";');
+    expect(html).toContain("depth-root");
+    expect(html).toContain("depth-child");
+  });
+
   it("renders real-world mixed markdown structures cleanly", async () => {
     const rendered = await renderMarkdownToHtml(`
 # Publish-It — Project Plan
