@@ -189,6 +189,29 @@ node dist/src/cli/main.js remove <slug> [--namespace <n>]                    Del
 
 Config stored in `~/.config/pub/config.json`. File-to-URL mappings stored in `.pub` in the working directory.
 
+### Obsidian Vaults And Repo-Owned Publish State
+
+When `pubmd publish` targets a file inside an Obsidian vault (detected via the nearest ancestor containing `.obsidian/`), it also writes a committed-friendly manifest at:
+
+```text
+.pubmd/pages.toml
+```
+
+The manifest stores the vault-relative source path plus the canonical publish mapping:
+
+```toml
+[[pages]]
+source = "10-product/00-vision-v1.md"
+namespace = "a"
+slug = "orba-vision"
+page_id = "123e4567-e89b-12d3-a456-426614174000"
+url = "https://bul.sh/a/orba-vision"
+title = "Product Vision v1"
+updated_at = "2026-03-27T00:00:00.000Z"
+```
+
+This manifest is designed for repository knowledge and can be committed. The older `.pub` file remains a local working-state cache.
+
 ## Development
 
 ```bash

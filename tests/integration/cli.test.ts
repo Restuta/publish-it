@@ -109,6 +109,83 @@ Updated body.
     };
     expect(Object.keys(mapping.files)).toHaveLength(0);
   });
+
+  it("writes a vault manifest and reuses it across working directories", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "publish-it-vault-"));
+    const configDir = path.join(root, "config");
+    const firstMappingPath = path.join(root, "first.pub");
+    const secondMappingPath = path.join(root, "second.pub");
+    const vaultRoot = path.join(root, "vault");
+    const firstCwd = path.join(vaultRoot, "notes");
+    const secondCwd = vaultRoot;
+    const notePath = path.join(firstCwd, "vision.md");
+    const manifestPath = path.join(vaultRoot, ".pubmd", "pages.toml");
+
+    server = await startTestServer(root);
+    await mkdir(path.join(vaultRoot, ".obsidian"), { recursive: true });
+    await mkdir(firstCwd, { recursive: true });
+    await writeFile(
+      notePath,
+      `---
+title: Product Vision
+---
+
+First version.
+`,
+      "utf8",
+    );
+
+    await runCli(["claim", "restuta", "--api-base", server.origin], {
+      cwd: firstCwd,
+      env: {
+        PUB_CONFIG_DIR: configDir,
+        PUB_MAPPING_PATH: firstMappingPath,
+      },
+    });
+
+    const firstUrl = (
+      await runCli(["publish", notePath, "--api-base", server.origin], {
+        cwd: firstCwd,
+        env: {
+          PUB_CONFIG_DIR: configDir,
+          PUB_MAPPING_PATH: firstMappingPath,
+        },
+      })
+    ).stdout.trim();
+
+    const manifestContents = await readFile(manifestPath, "utf8");
+    expect(manifestContents).toContain('source = "notes/vision.md"');
+    expect(manifestContents).toContain('slug = "product-vision"');
+    expect(manifestContents).toContain(firstUrl);
+
+    await writeFile(
+      notePath,
+      `---
+title: Product Vision Renamed
+---
+
+Updated body.
+`,
+      "utf8",
+    );
+
+    const secondPublish = await runCli(
+      ["publish", path.join("notes", "vision.md"), "--api-base", server.origin],
+      {
+        cwd: secondCwd,
+        env: {
+          PUB_CONFIG_DIR: configDir,
+          PUB_MAPPING_PATH: secondMappingPath,
+        },
+      },
+    );
+    const secondUrl = secondPublish.stdout.trim();
+
+    expect(secondUrl).toBe(firstUrl);
+
+    const pageResponse = await fetch(firstUrl);
+    expect(await pageResponse.text()).toContain("Updated body.");
+  });
 });
 
 async function runCli(
@@ -123,9 +200,13 @@ async function runCli(
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
-      ["./node_modules/tsx/dist/cli.mjs", "src/cli/main.ts", ...args],
+      [
+        path.join(repoRoot, "node_modules/tsx/dist/cli.mjs"),
+        path.join(repoRoot, "src/cli/main.ts"),
+        ...args,
+      ],
       {
-        cwd: repoRoot,
+        cwd: options.cwd,
         env: {
           ...process.env,
           ...options.env,
