@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   autolinkBareUrls,
   buildHtmlDocument,
+  getActiveHeadingId,
   parseMarkdownDocument,
   renderMarkdownToHtml,
+  TOC_ACTIVE_OFFSET_PX,
 } from "../../src/core/markdown.js";
 
 describe("markdown pipeline", () => {
@@ -48,6 +50,8 @@ const answer = 42;
     expect(html).toContain('rel="icon"');
     expect(html).toContain("--link:");
     expect(html).toContain("text-underline-offset");
+    expect(html).toContain("const setActive = id =>");
+    expect(html).toContain("if (targetId) setActive(targetId);");
   });
 
   it("renders real-world mixed markdown structures cleanly", async () => {
@@ -87,6 +91,47 @@ Stores raw .md + pre-rendered .html
     expect(rendered.html).toContain("<code>inline code</code>");
     expect(rendered.html).toContain("<pre><code>CLI or curl");
     expect(rendered.html).toContain("Edge Function (Hono)");
+  });
+});
+
+describe("getActiveHeadingId", () => {
+  it("returns an empty id when there are no headings", () => {
+    expect(getActiveHeadingId([])).toBe("");
+  });
+
+  it("uses the first heading before the scroll threshold is reached", () => {
+    expect(
+      getActiveHeadingId([
+        { id: "intro", top: 180 },
+        { id: "details", top: 420 },
+      ]),
+    ).toBe("intro");
+  });
+
+  it("uses the last heading that has crossed the active offset", () => {
+    expect(
+      getActiveHeadingId(
+        [
+          { id: "intro", top: -240 },
+          { id: "details", top: 80 },
+          { id: "faq", top: 280 },
+        ],
+        TOC_ACTIVE_OFFSET_PX,
+      ),
+    ).toBe("details");
+  });
+
+  it("promotes a clicked destination once it reaches the viewport threshold", () => {
+    expect(
+      getActiveHeadingId(
+        [
+          { id: "intro", top: -320 },
+          { id: "details", top: -40 },
+          { id: "faq", top: 40 },
+        ],
+        TOC_ACTIVE_OFFSET_PX,
+      ),
+    ).toBe("faq");
   });
 });
 
