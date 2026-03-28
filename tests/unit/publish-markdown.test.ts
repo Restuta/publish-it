@@ -50,4 +50,35 @@ describe("prepareMarkdownBodyForPublish", () => {
 
     expect(prepared).toContain("![Team photo](data:image/svg+xml;base64,");
   });
+
+  it("resolves Excalidraw embeds to sibling exported images", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "pubmd-excalidraw-"));
+    const notePath = path.join(root, "note.md");
+    const drawingPath = path.join(root, "diagram.excalidraw.md");
+    const exportPath = path.join(root, "diagram.svg");
+
+    await writeFile(
+      drawingPath,
+      `---
+excalidraw-plugin: parsed
+---
+`,
+      "utf8",
+    );
+    await writeFile(
+      exportPath,
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0h10v10H0z" fill="orange"/></svg>',
+      "utf8",
+    );
+
+    const prepared = await prepareMarkdownBodyForPublish(
+      "Here:\n\n![[diagram.excalidraw.md]]",
+      {
+        sourcePath: notePath,
+      },
+    );
+
+    expect(prepared).toContain("data:image/svg+xml;base64,");
+    expect(prepared).not.toContain("![[diagram.excalidraw.md]]");
+  });
 });

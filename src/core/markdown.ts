@@ -28,6 +28,40 @@ export interface RenderedPageDocument {
   renderedMarkdown: string;
 }
 
+export interface HeadingPosition {
+  id: string;
+  top: number;
+}
+
+export const TOC_ACTIVE_OFFSET_PX = 120;
+
+export function getActiveHeadingId(
+  headings: ReadonlyArray<HeadingPosition>,
+  activationOffset = TOC_ACTIVE_OFFSET_PX,
+  isNearPageEnd = false,
+): string {
+  if (headings.length === 0) {
+    return "";
+  }
+
+  if (isNearPageEnd) {
+    return headings.at(-1)?.id ?? "";
+  }
+
+  let activeId = headings[0]?.id ?? "";
+
+  for (const heading of headings) {
+    if (heading.top <= activationOffset) {
+      activeId = heading.id;
+      continue;
+    }
+
+    break;
+  }
+
+  return activeId;
+}
+
 export function parseMarkdownDocument(
   markdown: string,
 ): ParsedMarkdownDocument {
@@ -52,11 +86,18 @@ export async function renderMarkdownToHtml(
   markdown: string,
 ): Promise<RenderedPageDocument> {
   const renderedMarkdown = autolinkBareUrls(stripWikilinks(markdown.trim()));
+  const defaultProtocols = defaultSchema.protocols as
+    | Record<string, Array<string> | null | undefined>
+    | undefined;
+  const defaultSrcProtocolsValue = defaultProtocols?.["src"];
+  const defaultSrcProtocols = Array.isArray(defaultSrcProtocolsValue)
+    ? defaultSrcProtocolsValue
+    : [];
   const sanitizeSchema = {
     ...defaultSchema,
     protocols: {
       ...defaultSchema.protocols,
-      src: [...(defaultSchema.protocols?.["src"] ?? []), "data"],
+      src: [...defaultSrcProtocols, "data"],
     },
   };
   const rawHtml = String(
@@ -367,8 +408,8 @@ export function buildHtmlDocument(input: {
         border-radius: 1px;
         transition: background 150ms ease;
       }
-      .toc-lines span.depth-2 { width: 24px; }
-      .toc-lines span.depth-3 { width: 14px; }
+      .toc-lines span.depth-root { width: 24px; }
+      .toc-lines span.depth-child { width: 14px; }
       .toc-lines span.active { background: var(--fg); }
       .toc-nav {
         position: absolute;
@@ -401,7 +442,7 @@ export function buildHtmlDocument(input: {
       }
       .toc-nav a:hover { color: var(--fg); background: var(--surface); }
       .toc-nav a.active { color: var(--link); background: var(--surface); }
-      .toc-nav a.depth-3 { padding-left: 1.75rem; font-size: 0.8rem; }
+      .toc-nav a.depth-child { padding-left: 1.75rem; font-size: 0.8rem; }
 
       /* Mobile adjustments */
       @media (max-width: 600px) {
@@ -439,7 +480,33 @@ export function buildHtmlDocument(input: {
         });
       });
       // TOC navigation — minimap lines + hover popover
-      const headings = document.querySelectorAll('article h2, article h3');
+      const pageTitle = ${JSON.stringify(input.title)};
+      const bodyHeadings = Array.from(
+        document.querySelectorAll('article h1, article h2, article h3, article h4'),
+      ).filter((heading, index) => {
+        if (index !== 0) {
+          return true;
+        }
+
+        return !(
+          heading.tagName === 'H1' &&
+          (heading.textContent || '').trim() === pageTitle
+        );
+      });
+      const headingLevels = bodyHeadings.map((heading) =>
+        Number(heading.tagName.slice(1)),
+      );
+      const rootLevel =
+        headingLevels.length > 0 ? Math.min(...headingLevels) : null;
+      const childLevel =
+        rootLevel !== null && headingLevels.includes(rootLevel + 1)
+          ? rootLevel + 1
+          : null;
+      const headings = bodyHeadings.filter((heading) => {
+        const level = Number(heading.tagName.slice(1));
+        return level === rootLevel || level === childLevel;
+      });
+
       if (headings.length >= 3) {
         headings.forEach((h, i) => { if (!h.id) h.id = 'h-' + i; });
         const wrap = document.createElement('div');
@@ -451,7 +518,11 @@ export function buildHtmlDocument(input: {
         const lineEls = [];
         headings.forEach(h => {
           const line = document.createElement('span');
-          const depth = h.tagName === 'H3' ? 'depth-3' : 'depth-2';
+          const depth =
+            childLevel !== null &&
+            Number(h.tagName.slice(1)) === childLevel
+              ? 'depth-child'
+              : 'depth-root';
           line.className = depth;
           line.dataset.id = h.id;
           lines.appendChild(line);
@@ -459,7 +530,7 @@ export function buildHtmlDocument(input: {
           const a = document.createElement('a');
           a.href = '#' + h.id;
           a.textContent = h.textContent;
-          if (h.tagName === 'H3') a.classList.add('depth-3');
+          if (depth === 'depth-child') a.classList.add('depth-child');
           a.addEventListener('click', e => {
             e.preventDefault();
             h.scrollIntoView({ behavior: 'auto', block: 'start' });
@@ -470,14 +541,45 @@ export function buildHtmlDocument(input: {
         wrap.appendChild(nav);
         document.body.appendChild(wrap);
         let activeId = '';
-        const obs = new IntersectionObserver(entries => {
-          entries.forEach(e => { if (e.isIntersecting) activeId = e.target.id; });
+        let syncFrame = 0;
+        const setActive = id => {
+          if (!id || id === activeId) return;
+          activeId = id;
           lineEls.forEach(l => l.classList.toggle('active', l.dataset.id === activeId));
           nav.querySelectorAll('a').forEach(a => {
             a.classList.toggle('active', a.getAttribute('href') === '#' + activeId);
           });
-        }, { rootMargin: '-10% 0px -80% 0px' });
-        headings.forEach(h => obs.observe(h));
+        };
+        const syncActiveHeading = () => {
+          syncFrame = 0;
+          const isNearPageEnd =
+            window.innerHeight + window.scrollY >=
+            document.documentElement.scrollHeight - 4;
+          let nextActiveId = isNearPageEnd
+            ? headings.at(-1)?.id ?? ''
+            : headings[0]?.id ?? '';
+          if (!isNearPageEnd) {
+            headings.forEach(h => {
+              if (h.getBoundingClientRect().top <= ${TOC_ACTIVE_OFFSET_PX}) {
+                nextActiveId = h.id;
+              }
+            });
+          }
+          setActive(nextActiveId);
+        };
+        const queueActiveSync = () => {
+          if (syncFrame !== 0) return;
+          syncFrame = window.requestAnimationFrame(syncActiveHeading);
+        };
+        nav.querySelectorAll('a').forEach(a => {
+          a.addEventListener('click', () => {
+            const targetId = a.getAttribute('href')?.slice(1);
+            if (targetId) setActive(targetId);
+          });
+        });
+        window.addEventListener('scroll', queueActiveSync, { passive: true });
+        window.addEventListener('resize', queueActiveSync);
+        queueActiveSync();
       }
     </script>
   </body>
