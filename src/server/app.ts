@@ -101,12 +101,14 @@ Open source — [github.com/Restuta/pubmd](https://github.com/Restuta/pubmd)`;
 
     try {
       let markdown: string;
+      let renderMarkdown: string | undefined;
       let slug: string | undefined;
       let pageId: string | undefined;
 
       if (isJson) {
         const body = PublishPageRequestSchema.parse(await context.req.json());
         markdown = body.markdown;
+        renderMarkdown = body.renderMarkdown;
         slug = body.slug;
         pageId = body.pageId;
       } else {
@@ -119,6 +121,7 @@ Open source — [github.com/Restuta/pubmd](https://github.com/Restuta/pubmd)`;
         namespace: context.req.param("namespace"),
         token,
         markdown,
+        ...(renderMarkdown === undefined ? {} : { renderMarkdown }),
         origin: requestOrigin(context.req.url),
         ...(pageId === undefined ? {} : { pageId }),
         ...(slug === undefined ? {} : { requestedSlug: slug }),

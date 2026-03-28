@@ -169,6 +169,14 @@ describe("autolinkBareUrls", () => {
     );
   });
 
+  it("preserves data URL image sources in rendered HTML", async () => {
+    const rendered = await renderMarkdownToHtml(
+      "![Diagram](data:image/svg+xml;base64,PHN2Zy8+)",
+    );
+
+    expect(rendered.html).toContain('src="data:image/svg+xml;base64,PHN2Zy8+"');
+  });
+
   it("strips wikilinks and autolinks URLs inside them", async () => {
     const rendered = await renderMarkdownToHtml(
       "like [[telegra.ph]] but for the terminal era",

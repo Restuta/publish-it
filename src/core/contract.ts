@@ -27,6 +27,7 @@ export const ClaimNamespaceResponseSchema = z.object({
 
 export const PublishPageRequestSchema = z.object({
   markdown: z.string().min(1),
+  renderMarkdown: z.string().min(1).optional(),
   slug: NameSchema.optional(),
   pageId: z.string().uuid().optional(),
 });
