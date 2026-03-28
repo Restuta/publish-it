@@ -50,8 +50,27 @@ const answer = 42;
     expect(html).toContain('rel="icon"');
     expect(html).toContain("--link:");
     expect(html).toContain("text-underline-offset");
+    expect(html).toContain('const pageTitle = "Demo";');
+    expect(html).toContain("article h1, article h2, article h3, article h4");
+    expect(html).toContain("depth-root");
+    expect(html).toContain("depth-child");
     expect(html).toContain("const setActive = id =>");
     expect(html).toContain("if (targetId) setActive(targetId);");
+  });
+
+  it("builds adaptive TOC logic for documents that use body h1 headings", () => {
+    const html = buildHtmlDocument({
+      title: "Doc Title",
+      description: "Example",
+      noindex: true,
+      bodyHtml:
+        "<h1>Doc Title</h1><h1>Section</h1><h2>Child</h2><h1>Another</h1>",
+    });
+
+    expect(html).toContain('const pageTitle = "Doc Title";');
+    expect(html).toContain("article h1, article h2, article h3, article h4");
+    expect(html).toContain("depth-root");
+    expect(html).toContain("depth-child");
   });
 
   it("renders real-world mixed markdown structures cleanly", async () => {
@@ -132,6 +151,20 @@ describe("getActiveHeadingId", () => {
         TOC_ACTIVE_OFFSET_PX,
       ),
     ).toBe("faq");
+  });
+
+  it("keeps the last heading active near the end of the page", () => {
+    expect(
+      getActiveHeadingId(
+        [
+          { id: "section-one", top: -300 },
+          { id: "child-one", top: -120 },
+          { id: "section-two", top: 600 },
+        ],
+        TOC_ACTIVE_OFFSET_PX,
+        true,
+      ),
+    ).toBe("section-two");
   });
 });
 
