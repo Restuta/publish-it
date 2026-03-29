@@ -48,6 +48,18 @@ vi.mock("@vercel/blob", () => {
         stream: body,
       };
     }),
+    list: vi.fn(async (options: { prefix?: string; token: string }) => {
+      const store = getStore(options.token);
+      const prefix = options.prefix ?? "";
+      const blobs = [...store.keys()]
+        .filter((pathname) => pathname.startsWith(prefix))
+        .map((pathname) => ({ pathname }));
+
+      return {
+        blobs,
+        hasMore: false,
+      };
+    }),
     put: vi.fn(
       async (
         pathname: string,

@@ -8,13 +8,15 @@ import { createApp } from "../../src/server/app.js";
 
 export interface StartedTestServer {
   close(): Promise<void>;
+  dataDir: string;
   origin: string;
 }
 
 export async function startTestServer(
   rootDir: string,
 ): Promise<StartedTestServer> {
-  const repository = createFileStore(path.join(rootDir, "data"));
+  const dataDir = path.join(rootDir, "data");
+  const repository = createFileStore(dataDir);
   const service = createPublishService(repository);
   const app = createApp(service);
   const server = createServer(async (request, response) => {
@@ -83,6 +85,7 @@ export async function startTestServer(
   }
 
   return {
+    dataDir,
     origin: `http://127.0.0.1:${address.port}`,
     async close() {
       await closeServer(server);
