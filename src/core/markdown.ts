@@ -28,6 +28,71 @@ export interface RenderedPageDocument {
   renderedMarkdown: string;
 }
 
+interface HtmlRootNode {
+  type: "root";
+  children: HtmlNode[];
+}
+
+interface HtmlElementNode {
+  type: "element";
+  tagName: string;
+  properties?: Record<string, unknown>;
+  children: HtmlNode[];
+}
+
+interface HtmlTextNode {
+  type: "text";
+  value: string;
+}
+
+type HtmlNode = HtmlRootNode | HtmlElementNode | HtmlTextNode;
+
+const CALLOUT_TYPE_ALIASES: Record<string, string> = {
+  abstract: "abstract",
+  attention: "warning",
+  bug: "bug",
+  caution: "warning",
+  check: "success",
+  cite: "quote",
+  danger: "danger",
+  done: "success",
+  error: "danger",
+  example: "example",
+  fail: "failure",
+  failure: "failure",
+  faq: "question",
+  help: "question",
+  hint: "tip",
+  important: "tip",
+  info: "info",
+  missing: "failure",
+  note: "note",
+  question: "question",
+  quote: "quote",
+  success: "success",
+  summary: "abstract",
+  tip: "tip",
+  tldr: "abstract",
+  todo: "todo",
+  warning: "warning",
+};
+
+const CALLOUT_ICON_LABELS: Record<string, string> = {
+  abstract: "A",
+  bug: "B",
+  danger: "!",
+  example: "E",
+  failure: "X",
+  info: "I",
+  note: "N",
+  question: "?",
+  quote: '"',
+  success: "S",
+  tip: "T",
+  todo: "T",
+  warning: "!",
+};
+
 export function parseMarkdownDocument(
   markdown: string,
 ): ParsedMarkdownDocument {
@@ -58,6 +123,7 @@ export async function renderMarkdownToHtml(
       .use(remarkGfm)
       .use(remarkRehype)
       .use(rehypeSanitize)
+      .use(rehypeObsidianCallouts)
       .use(rehypeHighlight)
       .use(rehypeStringify)
       .process(renderedMarkdown),
@@ -234,6 +300,103 @@ export function buildHtmlDocument(input: {
       blockquote p:first-child { margin-top: 0; }
       blockquote p:last-child { margin-bottom: 0; }
       blockquote strong { color: inherit; font-style: normal; }
+
+      .callout {
+        --callout-color: 68, 138, 255;
+        margin: 1.5rem 0;
+        padding: 0.95rem 1rem 1rem;
+        border-radius: 12px;
+        background: rgba(var(--callout-color), 0.12);
+        color: color-mix(in srgb, rgb(var(--callout-color)) 55%, var(--fg));
+      }
+      .callout[data-callout="note"] { --callout-color: 68, 138, 255; }
+      .callout[data-callout="abstract"] { --callout-color: 0, 191, 188; }
+      .callout[data-callout="info"] { --callout-color: 0, 184, 212; }
+      .callout[data-callout="todo"] { --callout-color: 0, 175, 145; }
+      .callout[data-callout="tip"] { --callout-color: 0, 191, 99; }
+      .callout[data-callout="success"] { --callout-color: 8, 185, 78; }
+      .callout[data-callout="question"] { --callout-color: 236, 117, 0; }
+      .callout[data-callout="warning"] { --callout-color: 255, 145, 0; }
+      .callout[data-callout="failure"] { --callout-color: 233, 49, 71; }
+      .callout[data-callout="danger"] { --callout-color: 199, 43, 58; }
+      .callout[data-callout="bug"] { --callout-color: 233, 49, 71; }
+      .callout[data-callout="example"] { --callout-color: 120, 82, 238; }
+      .callout[data-callout="quote"] { --callout-color: 158, 158, 158; }
+      .callout-title {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin: 0;
+        color: rgb(var(--callout-color));
+        font-weight: 700;
+      }
+      .callout-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.4rem;
+        height: 1.4rem;
+        flex: none;
+        border-radius: 999px;
+        background: rgba(var(--callout-color), 0.16);
+        color: rgb(var(--callout-color));
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.78rem;
+        font-weight: 800;
+        line-height: 1;
+      }
+      .callout-title-label {
+        font-size: 0.96rem;
+        line-height: 1.35;
+      }
+      .callout-fold {
+        margin-left: auto;
+        width: 0.7rem;
+        height: 0.7rem;
+        flex: none;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        transition: transform 140ms ease;
+        opacity: 0.8;
+      }
+      details.callout {
+        padding-bottom: 0.9rem;
+      }
+      details.callout > summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      details.callout > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.callout:not([open]) .callout-fold {
+        transform: rotate(-45deg);
+      }
+      .callout-content {
+        margin-top: 0.8rem;
+      }
+      .callout-content > :first-child {
+        margin-top: 0;
+      }
+      .callout-content > :last-child {
+        margin-bottom: 0;
+      }
+      .callout-content p,
+      .callout-content li,
+      .callout-content blockquote {
+        color: inherit;
+      }
+      .callout strong {
+        color: inherit;
+      }
+      .callout-content blockquote {
+        border-left-color: rgba(var(--callout-color), 0.5);
+      }
+      .callout-content pre,
+      .callout-content table {
+        margin: 1rem 0;
+      }
 
       hr {
         border: none;
@@ -513,6 +676,340 @@ function extractDescription(body: string): string {
   }
 
   return "Published with pubmd.";
+}
+
+function rehypeObsidianCallouts() {
+  return (tree: HtmlRootNode): void => {
+    transformCalloutNodes(tree);
+  };
+}
+
+function transformCalloutNodes(parent: HtmlRootNode | HtmlElementNode): void {
+  parent.children = parent.children.map((child) => {
+    if (isHtmlElement(child)) {
+      transformCalloutNodes(child);
+
+      if (child.tagName === "blockquote") {
+        return transformBlockquoteCallout(child);
+      }
+    }
+
+    return child;
+  });
+}
+
+function transformBlockquoteCallout(blockquote: HtmlElementNode): HtmlNode {
+  const firstParagraphIndex = blockquote.children.findIndex(
+    (child) => isHtmlElement(child) && child.tagName === "p",
+  );
+
+  if (firstParagraphIndex === -1) {
+    return blockquote;
+  }
+
+  const firstChild = blockquote.children.at(firstParagraphIndex);
+
+  if (
+    firstChild === undefined ||
+    !isHtmlElement(firstChild) ||
+    firstChild.tagName !== "p"
+  ) {
+    return blockquote;
+  }
+
+  const header = parseCalloutHeader(firstChild);
+
+  if (header === null) {
+    return blockquote;
+  }
+
+  const trailingChildren = trimBoundaryWhitespace(
+    blockquote.children.slice(firstParagraphIndex + 1),
+  );
+  const contentChildren = [
+    ...buildFirstParagraphRemainder(firstChild),
+    ...trailingChildren,
+  ];
+  const hasContent = contentChildren.some(hasMeaningfulNodeContent);
+
+  if (header.foldable) {
+    return createElementNode(
+      "details",
+      {
+        className: ["callout"],
+        dataCallout: header.calloutType,
+        ...(header.defaultOpen ? { open: true } : {}),
+      },
+      [
+        createElementNode("summary", { className: ["callout-title"] }, [
+          createCalloutIcon(header.calloutType),
+          createElementNode("span", { className: ["callout-title-label"] }, [
+            createTextNode(header.title),
+          ]),
+          createElementNode("span", { className: ["callout-fold"] }, []),
+        ]),
+        ...(hasContent
+          ? [
+              createElementNode(
+                "div",
+                { className: ["callout-content"] },
+                contentChildren,
+              ),
+            ]
+          : []),
+      ],
+    );
+  }
+
+  return createElementNode(
+    "div",
+    {
+      className: ["callout"],
+      dataCallout: header.calloutType,
+    },
+    [
+      createElementNode("div", { className: ["callout-title"] }, [
+        createCalloutIcon(header.calloutType),
+        createElementNode("span", { className: ["callout-title-label"] }, [
+          createTextNode(header.title),
+        ]),
+      ]),
+      ...(hasContent
+        ? [
+            createElementNode(
+              "div",
+              { className: ["callout-content"] },
+              contentChildren,
+            ),
+          ]
+        : []),
+    ],
+  );
+}
+
+function parseCalloutHeader(firstParagraph: HtmlElementNode): {
+  calloutType: string;
+  defaultOpen: boolean;
+  foldable: boolean;
+  title: string;
+} | null {
+  const [firstLine] = collectNodeText(firstParagraph)
+    .replaceAll("\r\n", "\n")
+    .split("\n");
+
+  if (firstLine === undefined) {
+    return null;
+  }
+
+  const match = firstLine.trim().match(/^\[!([^\]\s]+)\]([+-])?(?:\s+(.*))?$/);
+
+  if (match === null) {
+    return null;
+  }
+
+  const rawType = match[1];
+
+  if (rawType === undefined) {
+    return null;
+  }
+
+  const normalizedType = rawType.toLowerCase();
+  const calloutType = CALLOUT_TYPE_ALIASES[normalizedType] ?? "note";
+  const providedTitle = match[3]?.trim();
+
+  return {
+    calloutType,
+    defaultOpen: match[2] !== "-",
+    foldable: match[2] !== undefined,
+    title:
+      providedTitle !== undefined && providedTitle.length > 0
+        ? providedTitle
+        : titleCaseWords(normalizedType),
+  };
+}
+
+function buildFirstParagraphRemainder(
+  firstParagraph: HtmlElementNode,
+): HtmlNode[] {
+  const remainderChildren = sliceNodesAfterFirstNewline(
+    firstParagraph.children,
+  );
+
+  if (!remainderChildren.some(hasMeaningfulNodeContent)) {
+    return [];
+  }
+
+  return [createElementNode("p", {}, remainderChildren)];
+}
+
+function sliceNodesAfterFirstNewline(children: HtmlNode[]): HtmlNode[] {
+  const remainder: HtmlNode[] = [];
+  let newlineSeen = false;
+
+  for (const child of children) {
+    if (newlineSeen) {
+      remainder.push(cloneHtmlNode(child));
+      continue;
+    }
+
+    if (!isHtmlText(child)) {
+      continue;
+    }
+
+    const newlineIndex = child.value.indexOf("\n");
+
+    if (newlineIndex === -1) {
+      continue;
+    }
+
+    newlineSeen = true;
+    const trailingValue = child.value
+      .slice(newlineIndex + 1)
+      .replace(/^\s+/, "");
+
+    if (trailingValue.length > 0) {
+      remainder.push(createTextNode(trailingValue));
+    }
+  }
+
+  return trimBoundaryWhitespace(remainder);
+}
+
+function trimBoundaryWhitespace(nodes: HtmlNode[]): HtmlNode[] {
+  const trimmed = [...nodes];
+
+  while (trimmed.length > 0) {
+    const first = trimmed[0];
+
+    if (first === undefined) {
+      break;
+    }
+
+    if (!isHtmlText(first)) {
+      break;
+    }
+
+    const nextValue = first.value.replace(/^\s+/, "");
+
+    if (nextValue.length === 0) {
+      trimmed.shift();
+      continue;
+    }
+
+    if (nextValue !== first.value) {
+      trimmed[0] = createTextNode(nextValue);
+    }
+
+    break;
+  }
+
+  while (trimmed.length > 0) {
+    const last = trimmed.at(-1);
+
+    if (last === undefined) {
+      break;
+    }
+
+    if (!isHtmlText(last)) {
+      break;
+    }
+
+    const nextValue = last.value.replace(/\s+$/, "");
+
+    if (nextValue.length === 0) {
+      trimmed.pop();
+      continue;
+    }
+
+    if (nextValue !== last.value) {
+      trimmed[trimmed.length - 1] = createTextNode(nextValue);
+    }
+
+    break;
+  }
+
+  return trimmed;
+}
+
+function collectNodeText(node: HtmlNode): string {
+  if (isHtmlText(node)) {
+    return node.value;
+  }
+
+  if (!("children" in node)) {
+    return "";
+  }
+
+  return node.children.map((child) => collectNodeText(child)).join("");
+}
+
+function createCalloutIcon(calloutType: string): HtmlElementNode {
+  return createElementNode("span", { className: ["callout-icon"] }, [
+    createTextNode(CALLOUT_ICON_LABELS[calloutType] ?? "N"),
+  ]);
+}
+
+function createElementNode(
+  tagName: string,
+  properties: Record<string, unknown>,
+  children: HtmlNode[],
+): HtmlElementNode {
+  return {
+    type: "element",
+    tagName,
+    properties,
+    children,
+  };
+}
+
+function createTextNode(value: string): HtmlTextNode {
+  return {
+    type: "text",
+    value,
+  };
+}
+
+function cloneHtmlNode(node: HtmlNode): HtmlNode {
+  if (isHtmlText(node)) {
+    return createTextNode(node.value);
+  }
+
+  if (!("children" in node)) {
+    return node;
+  }
+
+  return {
+    ...node,
+    children: node.children.map((child) => cloneHtmlNode(child)),
+  } as HtmlNode;
+}
+
+function hasMeaningfulNodeContent(node: HtmlNode): boolean {
+  if (isHtmlText(node)) {
+    return node.value.trim().length > 0;
+  }
+
+  if (!("children" in node)) {
+    return false;
+  }
+
+  return node.children.some((child) => hasMeaningfulNodeContent(child));
+}
+
+function isHtmlElement(node: HtmlNode): node is HtmlElementNode {
+  return node.type === "element";
+}
+
+function isHtmlText(node: HtmlNode): node is HtmlTextNode {
+  return node.type === "text";
+}
+
+function titleCaseWords(value: string): string {
+  return value
+    .split(/[-_\s]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 /**

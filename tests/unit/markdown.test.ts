@@ -88,6 +88,55 @@ Stores raw .md + pre-rendered .html
     expect(rendered.html).toContain("<pre><code>CLI or curl");
     expect(rendered.html).toContain("Edge Function (Hono)");
   });
+
+  it("renders Obsidian callouts with styled wrapper markup", async () => {
+    const rendered = await renderMarkdownToHtml(`
+> [!warning] Heads up
+> Keep this page private.
+`);
+
+    const html = buildHtmlDocument({
+      title: "Callouts",
+      description: "Example",
+      noindex: true,
+      bodyHtml: rendered.html,
+    });
+
+    expect(rendered.html).toContain('class="callout"');
+    expect(rendered.html).toContain('data-callout="warning"');
+    expect(rendered.html).toContain("Heads up");
+    expect(rendered.html).toContain("Keep this page private.");
+    expect(html).toContain('.callout[data-callout="warning"]');
+    expect(html).toContain(".callout-title");
+  });
+
+  it("supports callout aliases and collapsible state", async () => {
+    const rendered = await renderMarkdownToHtml(`
+> [!faq]- Common questions
+> This one starts collapsed.
+`);
+
+    expect(rendered.html).toContain("<details");
+    expect(rendered.html).toContain('data-callout="question"');
+    expect(rendered.html).not.toContain("<details open");
+    expect(rendered.html).toContain("Common questions");
+    expect(rendered.html).toContain("This one starts collapsed.");
+  });
+
+  it("preserves nested markdown content inside callouts", async () => {
+    const rendered = await renderMarkdownToHtml(`
+> [!tip]
+> Use **strong formatting** inside callouts.
+>
+> - first item
+> - second item
+`);
+
+    expect(rendered.html).toContain('data-callout="tip"');
+    expect(rendered.html).toContain("<strong>strong formatting</strong>");
+    expect(rendered.html).toContain("<ul>");
+    expect(rendered.html).toContain("<li>first item</li>");
+  });
 });
 
 describe("autolinkBareUrls", () => {
