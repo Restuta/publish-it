@@ -123,6 +123,21 @@ Stores raw .md + pre-rendered .html
     expect(rendered.html).toContain("This one starts collapsed.");
   });
 
+  it("renders expanded foldable callouts with the default title", async () => {
+    const rendered = await renderMarkdownToHtml(`
+> [!tip]+
+> This one starts open.
+`);
+
+    expect(rendered.html).toContain('data-callout="tip"');
+    expect(rendered.html).toContain("<details");
+    expect(rendered.html).toContain(
+      '<details class="callout" data-callout="tip" open>',
+    );
+    expect(rendered.html).toContain(">Tip<");
+    expect(rendered.html).toContain("This one starts open.");
+  });
+
   it("preserves nested markdown content inside callouts", async () => {
     const rendered = await renderMarkdownToHtml(`
 > [!tip]
